@@ -11,6 +11,7 @@ import com.github.anicmv.telegrambot.listener.filter.CommandMessageFilter;
 import com.github.anicmv.telegrambot.listener.filter.ForwardedMessageFilter;
 import com.github.anicmv.telegrambot.listener.filter.GroupChatFilter;
 import com.github.anicmv.telegrambot.listener.filter.GroupMessageFilter;
+import com.github.anicmv.telegrambot.listener.filter.InlineModeMessageFilter;
 import com.github.anicmv.telegrambot.listener.filter.RecordConfigFilter;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.repository.ChatMessageRepository;
@@ -129,6 +130,15 @@ class GroupMessageRecordListenerTest {
     }
 
     @Test
+    void shouldNotRecordInlineModeMessage() {
+        enableRecording(-100L);
+
+        newListener().onGroupMessage(inlineEvent(-100L, "supergroup"));
+
+        verifyNoInteractions(chatMessageRepository);
+    }
+
+    @Test
     void repositoryFailureShouldNotPropagate() {
         enableRecording(-100L);
         doThrow(new RuntimeException("db down")).when(chatMessageRepository).insert(any());
@@ -162,12 +172,13 @@ class GroupMessageRecordListenerTest {
     private GroupMessageRecordListener newListener(TaskExecutor taskExecutor) {
         List<GroupMessageFilter> filters = List.of(new GroupChatFilter(), new BotMessageFilter(),
                 new RecordConfigFilter(properties), new ForwardedMessageFilter(),
-                new CommandMessageFilter(new BotCommandRegistry(List.of(new PingTestHandler()))));
+                new CommandMessageFilter(new BotCommandRegistry(List.of(new PingTestHandler()))),
+                new InlineModeMessageFilter());
         return new GroupMessageRecordListener(chatMessageRepository, taskExecutor, filters);
     }
 
     private GroupMessageReceivedEvent commandEvent(long chatId, String chatType, String text) {
-        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false,
+        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false, false,
                 "text", null, null, text, 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
@@ -186,17 +197,22 @@ class GroupMessageRecordListenerTest {
     }
 
     private GroupMessageReceivedEvent event(long chatId, String chatType) {
-        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false,
+        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false, false,
                 "text", null, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
     private GroupMessageReceivedEvent botEvent(long chatId, String chatType) {
-        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", true, false,
+        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", true, false, false,
                 "text", null, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
     private GroupMessageReceivedEvent forwardedEvent(long chatId, String chatType) {
-        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, true,
+        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, true, false,
+                "text", null, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
+    }
+
+    private GroupMessageReceivedEvent inlineEvent(long chatId, String chatType) {
+        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false, true,
                 "text", null, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 }

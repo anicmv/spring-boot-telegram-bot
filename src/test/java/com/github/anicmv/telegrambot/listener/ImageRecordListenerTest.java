@@ -132,21 +132,21 @@ class ImageRecordListenerTest {
     }
 
     private GroupMessageReceivedEvent textEvent() {
-        return new GroupMessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false,
+        return new GroupMessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false, false,
                 "text", null, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
     private GroupMessageReceivedEvent stickerEvent(String format) {
         GroupMessageReceivedEvent.StickerInfo sticker = new GroupMessageReceivedEvent.StickerInfo(
                 "fid-1", "uniq-1", format, "😺", "catset", 512, 512);
-        return new GroupMessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false,
+        return new GroupMessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false, false,
                 "sticker", sticker, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
     private GroupMessageReceivedEvent photoEvent() {
         GroupMessageReceivedEvent.PhotoInfo photo = new GroupMessageReceivedEvent.PhotoInfo(
                 "fid-p", "uniq-p", 1280, 720);
-        return new GroupMessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false,
+        return new GroupMessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false, false,
                 "photo", null, photo, null, 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 }
