@@ -1,0 +1,94 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.graalvm.buildtools.native' version '1.1.8'
+}
+
+group = 'com.github.anicmv'
+version = '0.0.1-SNAPSHOT'
+description = 'spring-boot-telegram-bot'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = 'UTF-8'
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    springAiVersion = '2.0.1'
+    telegramBotsVersion = '10.2.1'
+    hutoolVersion = '5.8.47'
+    jsoupVersion = '1.23.2'
+    mybatisPlusVersion = '3.5.17'
+    archUnitVersion = '1.5.0'
+    xxlJobVersion = '3.4.2'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+    }
+}
+
+configurations.configureEach {
+    exclude group: 'org.springframework.boot', module: 'spring-boot-starter-logging'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-webclient'
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation "com.baomidou:mybatis-plus-spring-boot4-starter:${mybatisPlusVersion}"
+    implementation 'org.springframework.boot:spring-boot-starter-log4j2'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    implementation "org.telegram:telegrambots-springboot-longpolling-starter:${telegramBotsVersion}"
+    implementation "org.telegram:telegrambots-client:${telegramBotsVersion}"
+    implementation "cn.hutool:hutool-all:${hutoolVersion}"
+    implementation "org.jsoup:jsoup:${jsoupVersion}"
+    implementation "com.xuxueli:xxl-job-core:${xxlJobVersion}"
+
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    runtimeOnly('io.netty:netty-resolver-dns-native-macos') {
+        artifact {
+            classifier = 'osx-aarch_64'
+        }
+    }
+    runtimeOnly('io.netty:netty-resolver-dns-native-macos') {
+        artifact {
+            classifier = 'osx-x86_64'
+        }
+    }
+
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation "com.tngtech.archunit:archunit-junit5:${archUnitVersion}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+tasks.named('jar') {
+    enabled = false
+}
+
+tasks.named('bootRun') {
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+}
