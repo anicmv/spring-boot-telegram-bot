@@ -11,7 +11,10 @@ import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.AnswerInlineQuery;
 import org.telegram.telegrambots.meta.api.methods.GetUserProfilePhotos;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChat;
+import org.telegram.telegrambots.meta.api.objects.chat.ChatFullInfo;
 import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
+import org.telegram.telegrambots.meta.api.methods.send.SendMediaGroup;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
@@ -35,6 +38,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +52,10 @@ import java.util.concurrent.TimeUnit;
 public class TelegramMessenger implements Messenger {
 
     private static final String TELEGRAM_FILE_BASE_URL = "https://api.telegram.org/file/bot";
+    /** GetUserProfilePhotos 官方单页上限 */
+    private static final int MAX_AVATAR_FETCH = 100;
+    /** SendMediaGroup 官方单组上限 */
+    private static final int MAX_ALBUM_SIZE = 10;
 
     private final TelegramClient telegramClient;
     private final ApplicationEventPublisher eventPublisher;
@@ -672,6 +680,114 @@ public class TelegramMessenger implements Messenger {
         } catch (TelegramApiException e) {
             log.warn("Failed to get user avatar file id for {}", telegramUserId, e);
             return null;
+        }
+    }
+
+    @Override
+    public List<String> getUserAvatarFileIds(Long telegramUserId) {
+        if (telegramUserId == null) {
+            return List.of();
+        }
+        List<String> fileIds = new ArrayList<>();
+        int offset = 0;
+        try {
+            while (offset < MAX_AVATAR_FETCH) {
+                GetUserProfilePhotos request = GetUserProfilePhotos.builder()
+                        .userId(telegramUserId)
+                        .offset(offset)
+                        .limit(MAX_AVATAR_FETCH)
+                        .build();
+                UserProfilePhotos photos = telegramClient.execute(request);
+                if (photos == null || photos.getPhotos() == null || photos.getPhotos().isEmpty()) {
+                    break;
+                }
+                for (List<PhotoSize> sizes : photos.getPhotos()) {
+                    if (sizes == null || sizes.isEmpty()) {
+                        continue;
+                    }
+                    sizes.stream()
+                            .max(Comparator.comparing(PhotoSize::getFileSize))
+                            .map(PhotoSize::getFileId)
+                            .filter(id -> id != null && !id.isBlank())
+                            .filter(id -> fileIds.size() < MAX_AVATAR_FETCH)
+                            .ifPresent(fileIds::add);
+                }
+                offset += photos.getPhotos().size();
+                if (offset >= photos.getTotalCount()) {
+                    break;
+                }
+            }
+        } catch (TelegramApiException e) {
+            log.warn("Failed to get user avatar list for {}", telegramUserId, e);
+        }
+        log.info("用户头像集合拉取: userId={}, 取到 {} 张", telegramUserId, fileIds.size());
+        return fileIds;
+    }
+
+    @Override
+    public void sendPhotoAlbumByFileIds(Long chatId, Integer replyToMessageId, List<String> fileIds, String caption) {
+        if (chatId == null || fileIds == null || fileIds.isEmpty()) {
+            return;
+        }
+        for (int start = 0; start < fileIds.size(); start += MAX_ALBUM_SIZE) {
+            List<String> batch = fileIds.subList(start, Math.min(start + MAX_ALBUM_SIZE, fileIds.size()));
+            // SendMediaGroup 要求 2-10 张，单张（含尾批只剩 1 张）走 SendPhoto
+            if (batch.size() == 1) {
+                sendSinglePhotoByFileId(chatId, start == 0 ? replyToMessageId : null,
+                        start == 0 ? caption : null, batch.get(0));
+                continue;
+            }
+            List<InputMediaPhoto> media = new ArrayList<>(batch.size());
+            for (int i = 0; i < batch.size(); i++) {
+                InputMediaPhoto.InputMediaPhotoBuilder<?, ?> builder = InputMediaPhoto.builder().media(batch.get(i));
+                if (start == 0 && i == 0 && caption != null && !caption.isBlank()) {
+                    builder.caption(caption);
+                }
+                media.add(builder.build());
+            }
+            SendMediaGroup.SendMediaGroupBuilder<?, ?> groupBuilder = SendMediaGroup.builder()
+                    .chatId(chatId)
+                    .medias(media);
+            if (start == 0 && replyToMessageId != null) {
+                groupBuilder.replyToMessageId(replyToMessageId);
+            }
+            try {
+                telegramClient.execute(groupBuilder.build());
+                eventPublisher.publishEvent(new UpdateHandledEvent("album", chatId));
+            } catch (TelegramApiException e) {
+                log.error("Failed to send photo album to chat {}", chatId, e);
+            }
+        }
+    }
+
+    @Override
+    public ChatFullInfo getChatFullInfo(Long chatId) {
+        if (chatId == null) {
+            return null;
+        }
+        try {
+            return telegramClient.execute(GetChat.builder().chatId(chatId).build());
+        } catch (TelegramApiException e) {
+            log.warn("Failed to get chat full info for {}", chatId, e);
+            return null;
+        }
+    }
+
+    private void sendSinglePhotoByFileId(Long chatId, Integer replyToMessageId, String caption, String fileId) {
+        SendPhoto.SendPhotoBuilder<?, ?> builder = SendPhoto.builder()
+                .chatId(chatId)
+                .photo(new InputFile(fileId));
+        if (caption != null && !caption.isBlank()) {
+            builder.caption(caption);
+        }
+        if (replyToMessageId != null) {
+            builder.replyToMessageId(replyToMessageId);
+        }
+        try {
+            telegramClient.execute(builder.build());
+            eventPublisher.publishEvent(new UpdateHandledEvent("photo", chatId));
+        } catch (TelegramApiException e) {
+            log.error("Failed to send photo by file id to chat {}", chatId, e);
         }
     }
 

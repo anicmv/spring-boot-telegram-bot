@@ -72,10 +72,9 @@ class ProfileAnalysisServiceTest {
         when(userProfileRepository.findByTelegramId(1L)).thenReturn(Optional.empty());
         when(chatMessageRepository.findNewerThanByUser(any(), eq(1L), eq(0L), anyInt()))
                 .thenReturn(List.of(message(5L, "我喜欢打游戏"), message(6L, "今晚开黑吗")));
-        when(deepSeekChatService.chat(anyString(), anyString())).thenReturn(
-                "{\"summary\":\"爱打游戏\",\"interests\":[\"游戏\"],"
-                        + "\"personality\":{\"开朗\":\"群里活跃\"},\"active_hours\":\"深夜\","
-                        + "\"frequent_topics\":[\"开黑\"]}");
+        when(deepSeekChatService.chatWithUsage(anyString(), anyString())).thenReturn(
+                new DeepSeekChatService.ChatResult(
+                        "{\"summary\":\"爱打游戏\",\"report\":\"白天摸鱼晚上开黑的典型群友。\\n\\n第二段。\"}", 1234L));
 
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
 
@@ -85,11 +84,11 @@ class ProfileAnalysisServiceTest {
         UserProfileEntity saved = captor.getValue();
         assertEquals(1L, saved.getTelegramUserId());
         assertEquals("爱打游戏", saved.getSummary());
+        assertTrue(saved.getReport().contains("开黑"));
+        assertEquals(1234L, saved.getTotalTokens());
         assertEquals(6L, saved.getLastAnalyzedMessageId());
         assertEquals(2, saved.getAnalyzedMessageCount());
         assertEquals("deepseek-chat", saved.getModel());
-        assertTrue(saved.getInterests().contains("游戏"));
-        assertTrue(saved.getFrequentTopics().contains("开黑"));
     }
 
     @Test
@@ -98,12 +97,13 @@ class ProfileAnalysisServiceTest {
         when(userProfileRepository.findByTelegramId(1L)).thenReturn(Optional.empty());
         when(chatMessageRepository.findNewerThanByUser(any(), eq(1L), eq(0L), anyInt()))
                 .thenReturn(List.of(message(7L, "随便聊聊")));
-        when(deepSeekChatService.chat(anyString(), anyString())).thenReturn("这不是 JSON");
+        when(deepSeekChatService.chatWithUsage(anyString(), anyString())).thenReturn(
+                new DeepSeekChatService.ChatResult("这不是 JSON", 5L));
 
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
 
         assertEquals(new ProfileAnalysisStats(1, 0, 1, 0), stats);
-        verify(deepSeekChatService, times(2)).chat(anyString(), anyString());
+        verify(deepSeekChatService, times(2)).chatWithUsage(anyString(), anyString());
         ArgumentCaptor<UserProfileEntity> captor = ArgumentCaptor.forClass(UserProfileEntity.class);
         verify(userProfileRepository).upsert(captor.capture());
         UserProfileEntity saved = captor.getValue();
@@ -121,7 +121,7 @@ class ProfileAnalysisServiceTest {
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
 
         assertEquals(new ProfileAnalysisStats(1, 0, 0, 1), stats);
-        verify(deepSeekChatService, never()).chat(anyString(), anyString());
+        verify(deepSeekChatService, never()).chatWithUsage(anyString(), anyString());
         verify(userProfileRepository, never()).upsert(any());
     }
 
@@ -136,9 +136,8 @@ class ProfileAnalysisServiceTest {
         when(userProfileRepository.findByTelegramId(1L)).thenReturn(Optional.of(oldProfile));
         when(chatMessageRepository.findNewerThanByUser(any(), eq(1L), eq(100L), anyInt()))
                 .thenReturn(List.of(message(101L, "新消息")));
-        when(deepSeekChatService.chat(anyString(), anyString())).thenReturn(
-                "{\"summary\":\"更新后的画像\",\"interests\":[],\"personality\":{},"
-                        + "\"active_hours\":\"\",\"frequent_topics\":[]}");
+        when(deepSeekChatService.chatWithUsage(anyString(), anyString())).thenReturn(
+                new DeepSeekChatService.ChatResult("{\"summary\":\"更新后的画像\",\"report\":\"新的正文\"}", 8L));
 
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
 
@@ -149,6 +148,28 @@ class ProfileAnalysisServiceTest {
         assertEquals(11L, saved.getId());
         assertEquals(101L, saved.getLastAnalyzedMessageId());
         assertEquals(51, saved.getAnalyzedMessageCount());
+        assertEquals(8L, saved.getTotalTokens());
+    }
+
+    @Test
+    void shouldAnalyzeUsersInParallel() {
+        properties.getProfile().setAnalysisConcurrency(3);
+        when(chatMessageRepository.findDistinctUserIdsWithNewMessages(any())).thenReturn(List.of(1L, 2L, 3L));
+        when(userProfileRepository.findByTelegramId(any())).thenReturn(Optional.empty());
+        when(chatMessageRepository.findNewerThanByUser(any(), any(), eq(0L), anyInt()))
+                .thenReturn(List.of(message(5L, "消息内容")));
+        when(deepSeekChatService.chatWithUsage(anyString(), anyString())).thenAnswer(invocation -> {
+            Thread.sleep(150);
+            return new DeepSeekChatService.ChatResult("{\"summary\":\"s\",\"report\":\"r\"}", 1L);
+        });
+
+        long startNanos = System.nanoTime();
+        ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
+        long elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000;
+
+        assertEquals(new ProfileAnalysisStats(3, 3, 0, 0), stats);
+        // 串行至少 450ms，并行应在其一半以内完成（留足调度余量）
+        assertTrue(elapsedMillis < 350, "expected parallel execution, took " + elapsedMillis + "ms");
     }
 
     @Test

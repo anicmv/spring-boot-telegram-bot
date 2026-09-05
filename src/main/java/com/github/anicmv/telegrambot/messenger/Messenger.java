@@ -1,6 +1,7 @@
 package com.github.anicmv.telegrambot.messenger;
 
 import com.github.anicmv.telegrambot.model.InlineButton;
+import org.telegram.telegrambots.meta.api.objects.chat.ChatFullInfo;
 import org.telegram.telegrambots.meta.api.objects.inlinequery.result.InlineQueryResult;
 
 import java.util.List;
@@ -62,6 +63,21 @@ public interface Messenger {
     String uploadPhotoBytes(Long chatId, byte[] data);
 
     String getUserAvatarFileId(Long telegramUserId);
+
+    /**
+     * 获取用户全部历史头像的 file_id（每张取最大尺寸，新的在前，最多 100 张）。
+     */
+    List<String> getUserAvatarFileIds(Long telegramUserId);
+
+    /**
+     * 以相册（每 10 张一组）发送图片集合，caption 挂在第一张上。
+     */
+    void sendPhotoAlbumByFileIds(Long chatId, Integer replyToMessageId, List<String> fileIds, String caption);
+
+    /**
+     * GetChat 拉取会话完整信息（群/频道简介、bio 等）；失败或无权限返回 null。
+     */
+    ChatFullInfo getChatFullInfo(Long chatId);
 
     byte[] downloadFileBytes(String fileId);
 

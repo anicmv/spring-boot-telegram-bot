@@ -25,6 +25,9 @@ public class UserProfileEntity {
     @TableField("summary")
     private String summary;
 
+    @TableField("report")
+    private String report;
+
     @TableField("interests")
     private String interests;
 
@@ -42,6 +45,9 @@ public class UserProfileEntity {
 
     @TableField("last_analyzed_message_id")
     private Long lastAnalyzedMessageId;
+
+    @TableField("total_tokens")
+    private Long totalTokens;
 
     @TableField("model")
     private String model;

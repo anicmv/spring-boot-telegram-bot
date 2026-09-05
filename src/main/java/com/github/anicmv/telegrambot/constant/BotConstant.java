@@ -32,6 +32,8 @@ public final class BotConstant {
     public static final String CMD_SEARCHIMG = "/searchimg";
     public static final String CMD_PROFILE = "/profile";
     public static final String CMD_PACK = "/pack";
+    public static final String CMD_AVATARS = "/avatars";
+    public static final String CMD_INFO = "/info";
 
     public static final String CALLBACK_ACTION_PING = "PING";
     public static final String CALLBACK_ACTION_NOOP = "NOOP";

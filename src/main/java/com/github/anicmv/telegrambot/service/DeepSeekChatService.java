@@ -2,6 +2,7 @@ package com.github.anicmv.telegrambot.service;
 
 import com.github.anicmv.telegrambot.config.BotProperties;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 
 /**
@@ -40,14 +41,34 @@ public class DeepSeekChatService {
      * 与 {@link #chat(String)} 隔离，不复用机器人人设提示词。
      */
     public String chat(String systemPrompt, String userMessage) {
+        return chatWithUsage(systemPrompt, userMessage).content();
+    }
+
+    /**
+     * 同 {@link #chat(String, String)}，额外返回本轮消耗 token 总数，供画像成本统计。
+     */
+    public ChatResult chatWithUsage(String systemPrompt, String userMessage) {
         if (userMessage == null || userMessage.isBlank()) {
-            return "";
+            return new ChatResult("", 0L);
         }
-        String content = chatClient.prompt()
+        ChatResponse response = chatClient.prompt()
                 .system(systemPrompt)
                 .user(userMessage.trim())
                 .call()
-                .content();
-        return content == null ? "" : content.trim();
+                .chatResponse();
+        if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
+            return new ChatResult("", 0L);
+        }
+        String content = response.getResult().getOutput().getText();
+        long totalTokens = response.getMetadata() != null && response.getMetadata().getUsage() != null
+                ? response.getMetadata().getUsage().getTotalTokens() : 0L;
+        return new ChatResult(content == null ? "" : content.trim(), totalTokens);
+    }
+
+    /**
+     * @param content    模型输出内容
+     * @param totalTokens 本轮消耗 token 总数（含输入输出，取不到时为 0）
+     */
+    public record ChatResult(String content, Long totalTokens) {
     }
 }

@@ -1,6 +1,5 @@
 package com.github.anicmv.telegrambot.handler.command.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.anicmv.telegrambot.config.BotProperties;
 import com.github.anicmv.telegrambot.entity.UserProfileEntity;
 import com.github.anicmv.telegrambot.messenger.Messenger;
@@ -8,7 +7,10 @@ import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.BotUserProfile;
 import com.github.anicmv.telegrambot.model.UpdateType;
 import com.github.anicmv.telegrambot.repository.BotUserRepository;
+import com.github.anicmv.telegrambot.repository.ChatMessageRepository;
 import com.github.anicmv.telegrambot.repository.UserProfileRepository;
+import com.github.anicmv.telegrambot.service.ProfileAnalysisService;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,12 @@ class ProfileCommandHandlerTest {
     @Mock
     private BotUserRepository botUserRepository;
 
+    @Mock
+    private ChatMessageRepository chatMessageRepository;
+
+    @Mock
+    private ProfileAnalysisService profileAnalysisService;
+
     private BotProperties properties;
     private ProfileCommandHandler handler;
 
@@ -47,47 +55,124 @@ class ProfileCommandHandlerTest {
     void setUp() {
         properties = new BotProperties();
         handler = new ProfileCommandHandler(messenger, userProfileRepository, botUserRepository,
-                properties, new ObjectMapper(), Runnable::run);
+                chatMessageRepository, profileAnalysisService, properties, Runnable::run);
     }
 
     @Test
-    void shouldShowFriendlyTextWhenNoProfile() {
+    void shouldShowFriendlyTextWhenNoProfileAndNoMessages() {
         when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
         when(userProfileRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
+        when(profileAnalysisService.analyzeUser(999L)).thenReturn(ProfileAnalysisService.Result.SKIPPED);
 
         handler.execute(context("/profile"));
 
-        verify(userProfileRepository).findByTelegramId(999L);
+        verify(profileAnalysisService).analyzeUser(999L);
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(messenger).editMessageText(eq(-100123L), eq(700), captor.capture(), eq("MarkdownV2"));
-        assertTrue(captor.getValue().contains("没有画像数据"));
+        verify(messenger, org.mockito.Mockito.atLeastOnce())
+                .editMessageText(eq(-100123L), eq(700), captor.capture(), eq("HTML"));
+        assertTrue(captor.getAllValues().getLast().contains("没有画像数据"));
+    }
+
+    @Test
+    void shouldGenerateProfileOnDemandWhenMissing() {
+        UserProfileEntity generated = new UserProfileEntity();
+        generated.setTelegramUserId(999L);
+        generated.setSummary("现场生成的一句话人设");
+        generated.setReport("现场生成的长文正文");
+        when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
+        when(userProfileRepository.findByTelegramId(999L))
+                .thenReturn(Optional.empty(), Optional.of(generated));
+        when(profileAnalysisService.analyzeUser(999L)).thenReturn(ProfileAnalysisService.Result.SUCCESS);
+        when(botUserRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
+        when(chatMessageRepository.findStatsByUser(any(), eq(999L), any())).thenReturn(
+                new ChatMessageRepository.UserMessageStats(1, LocalDateTime.now().minusDays(3), LocalDateTime.now()));
+
+        handler.execute(context("/profile"));
+
+        verify(profileAnalysisService).analyzeUser(999L);
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(messenger, org.mockito.Mockito.atLeastOnce())
+                .editMessageText(eq(-100123L), eq(700), captor.capture(), eq("HTML"));
+        String finalText = captor.getAllValues().getLast();
+        assertTrue(finalText.contains("现场生成的一句话人设"));
+        assertTrue(finalText.contains("<blockquote expandable>现场生成的长文正文"));
     }
 
     @Test
     void shouldFormatExistingProfile() {
         UserProfileEntity profile = new UserProfileEntity();
         profile.setTelegramUserId(999L);
-        profile.setSummary("热爱二次元");
-        profile.setInterests("[\"动漫\",\"游戏\"]");
-        profile.setPersonality("{\"开朗\":\"活跃\"}");
-        profile.setActiveHours("深夜");
-        profile.setFrequentTopics("[\"新番\"]");
+        profile.setSummary("一个白天摸鱼晚上开黑的抽象乐子人");
+        profile.setReport("段落一\n\n段落二，群里的整活小王。");
+        profile.setModel("qwen3.8-flash");
+        profile.setTotalTokens(22867L);
         profile.setAnalyzedMessageCount(42);
+        profile.setLastAnalyzedMessageId(100L);
         when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
         when(userProfileRepository.findByTelegramId(999L)).thenReturn(Optional.of(profile));
+        when(botUserRepository.findByTelegramId(999L))
+                .thenReturn(Optional.of(new BotUserProfile(1L, "baaadcola", "某人", 999L, null, null)));
+        when(chatMessageRepository.findStatsByUser(any(), eq(999L), eq(100L))).thenReturn(
+                new ChatMessageRepository.UserMessageStats(2,
+                        LocalDateTime.of(2026, 5, 31, 10, 0),
+                        LocalDateTime.of(2026, 7, 24, 23, 0)));
 
         handler.execute(context("/profile"));
 
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(messenger).editMessageText(eq(-100123L), eq(700), captor.capture(), eq("MarkdownV2"));
+        verify(messenger).editMessageText(eq(-100123L), eq(700), captor.capture(), eq("HTML"));
         String text = captor.getValue();
-        assertTrue(text.contains("用户画像"));
-        assertTrue(text.contains("热爱二次元"));
-        assertTrue(text.contains("动漫"));
-        assertTrue(text.contains("游戏"));
-        assertTrue(text.contains("深夜"));
-        assertTrue(text.contains("新番"));
-        assertTrue(text.contains("42"));
+        assertTrue(text.contains("用户画像："));
+        assertTrue(text.contains("@baaadcola"));
+        assertTrue(text.contains("样本 42 条 ｜ 群聊 2 个 ｜ 时间范围 05-31 ~ 07-24"));
+        assertTrue(text.contains("<blockquote>一个白天摸鱼晚上开黑的抽象乐子人</blockquote>"));
+        assertTrue(text.contains("<blockquote expandable>段落一\n\n段落二"));
+        assertTrue(text.contains("Powered by qwen3.8-flash ｜ 22,867 tokens"));
+    }
+
+    @Test
+    void shouldRejectUserNotInWhitelist() {
+        properties.getProfile().getAllowUserIds().add(123456L);
+
+        handler.execute(context("/profile"));
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(messenger).sendReplyText(eq(-100123L), eq(7), captor.capture());
+        assertTrue(captor.getValue().contains("白名单"));
+        verify(userProfileRepository, never()).findByTelegramId(anyLong());
+    }
+
+    @Test
+    void shouldAllowUserInWhitelist() {
+        properties.getProfile().getAllowUserIds().add(999L);
+        when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
+        when(userProfileRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
+        when(profileAnalysisService.analyzeUser(999L)).thenReturn(ProfileAnalysisService.Result.SKIPPED);
+
+        handler.execute(context("/profile"));
+
+        verify(userProfileRepository).findByTelegramId(999L);
+    }
+
+    @Test
+    void shouldRejectBotTarget() {
+        Message replied = new Message();
+        replied.setFrom(org.telegram.telegrambots.meta.api.objects.User.builder()
+                .id(777L).firstName("SomeBot").userName("some_bot").isBot(true).build());
+        Message command = new Message();
+        command.setMessageId(7);
+        command.setFrom(org.telegram.telegrambots.meta.api.objects.User.builder()
+                .id(999L).firstName("caller").isBot(false).build());
+        command.setReplyToMessage(replied);
+        BotContext ctx = new BotContext(null, UpdateType.MESSAGE, -100123L, 999L, "/profile", command, null, null, null);
+
+        handler.execute(ctx);
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(messenger).sendReplyText(eq(-100123L), eq(7), captor.capture());
+        assertTrue(captor.getValue().contains("机器人账号不支持"));
+        verify(userProfileRepository, never()).findByTelegramId(anyLong());
+        verify(profileAnalysisService, never()).analyzeUser(anyLong());
     }
 
     @Test
@@ -110,7 +195,7 @@ class ProfileCommandHandlerTest {
 
         handler.execute(context("/profile @someone"));
 
-        verify(userProfileRepository).findByTelegramId(888L);
+        verify(userProfileRepository, org.mockito.Mockito.atLeastOnce()).findByTelegramId(888L);
     }
 
     @Test
