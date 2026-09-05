@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.anicmv.telegrambot.model.BotUserProfile;
 import com.github.anicmv.telegrambot.entity.BotUserEntity;
 import com.github.anicmv.telegrambot.mapper.BotUserMapper;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -36,15 +37,27 @@ public class BotUserRepository {
         entity.setAvatarFileId(profile.avatarFileId());
         entity.setAvatarData(profile.avatarData());
 
-        BotUserEntity existing = botUserMapper.selectOne(new LambdaQueryWrapper<BotUserEntity>()
-                .eq(BotUserEntity::getTelegramId, profile.telegramId())
-                .last("LIMIT 1"));
+        BotUserEntity existing = selectByTelegramId(profile.telegramId());
         if (existing == null) {
-            botUserMapper.insert(entity);
-            return;
+            try {
+                botUserMapper.insert(entity);
+                return;
+            } catch (DuplicateKeyException e) {
+                // select-then-insert 窗口内并发插入撞 uk_bot_user_telegram_id：重查后转 update
+                existing = selectByTelegramId(profile.telegramId());
+                if (existing == null) {
+                    throw e;
+                }
+            }
         }
         entity.setUserId(existing.getUserId());
         botUserMapper.updateById(entity);
+    }
+
+    private BotUserEntity selectByTelegramId(Long telegramId) {
+        return botUserMapper.selectOne(new LambdaQueryWrapper<BotUserEntity>()
+                .eq(BotUserEntity::getTelegramId, telegramId)
+                .last("LIMIT 1"));
     }
 
     /**
@@ -74,10 +87,7 @@ public class BotUserRepository {
         if (telegramId == null) {
             return Optional.empty();
         }
-        BotUserEntity entity = botUserMapper.selectOne(new LambdaQueryWrapper<BotUserEntity>()
-                .eq(BotUserEntity::getTelegramId, telegramId)
-                .last("LIMIT 1"));
-        return Optional.ofNullable(toProfile(entity));
+        return Optional.ofNullable(toProfile(selectByTelegramId(telegramId)));
     }
 
     public Optional<BotUserProfile> findRandomWithAvatar() {
