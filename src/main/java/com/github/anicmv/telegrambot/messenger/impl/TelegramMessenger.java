@@ -413,7 +413,7 @@ public class TelegramMessenger implements Messenger {
     }
 
     @Override
-    public void editMessageText(Long chatId, Integer messageId, String text, String parseMode) {
+    public void editMessageText(Long chatId, Integer messageId, String text, String parseMode, List<InlineButton> buttons) {
         if (chatId == null || messageId == null || blank(text)) {
             return;
         }
@@ -423,6 +423,11 @@ public class TelegramMessenger implements Messenger {
                 .text(text);
         if (!blank(parseMode)) {
             builder.parseMode(parseMode);
+        }
+        if (buttons != null) {
+            builder.replyMarkup(buttons.isEmpty()
+                    ? new InlineKeyboardMarkup(List.of())
+                    : callbackKeyboard(buttons));
         }
         execute(() -> telegramClient.execute(builder.build()),
                 Kind.EDIT_MESSAGE_TEXT, chatId, "edit message text chatId=" + chatId + ", messageId=" + messageId);

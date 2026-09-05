@@ -96,9 +96,16 @@ public class BotProperties {
         private boolean allowQueryOthers = false;
 
         /**
-         * /profile 命令使用白名单（Telegram 用户 ID）；空集合表示不限制。
+         * /profile 是否每次现场强制重新生成画像（忽略存量画像，从最早消息重新分析一轮）。
+         * 画像格式调整期临时开启，稳定后应关闭，改由每晚跑批滚动更新、/profile 直接读库。
          */
-        private Set<Long> allowUserIds = new HashSet<>();
+        private boolean regenerateOnQuery = true;
+
+        /**
+         * /profile 授权管理员（Telegram 用户 ID）：仅其点击授权按钮生效，且 admin 免白名单直接使用 /profile。
+         * 普通用户白名单已数据库化（profile_allow_user 表），由管理员通过按钮授权落库。
+         */
+        private Set<Long> adminUserIds = new HashSet<>();
 
         /**
          * analyzeAll 并行分析的并发用户数（每人一次 LLM 调用）。

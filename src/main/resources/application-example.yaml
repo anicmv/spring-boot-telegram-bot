@@ -45,6 +45,10 @@ bot:
       batch-message-limit: 100
       # /profile 是否允许通过 @username 直接查他人画像
       allow-query-others: false
+      # /profile 是否每次现场强制重新生成画像；画像格式调整期临时开启，稳定后关闭改由每晚跑批更新
+      regenerate-on-query: true
+      # /profile 授权管理员：仅其点击授权按钮生效，且 admin 免白名单直接用 /profile；普通用户白名单存 profile_allow_user 表
+      admin-user-ids: []
   douyin:
     # 是否下载并上传视频文件；false 时仅发送解析后的富文本信息。
     upload-video-enabled: true

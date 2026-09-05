@@ -128,7 +128,14 @@ public interface Messenger {
 
     void deleteMessageSilently(Long chatId, Integer messageId);
 
-    void editMessageText(Long chatId, Integer messageId, String text, String parseMode);
+    default void editMessageText(Long chatId, Integer messageId, String text, String parseMode) {
+        editMessageText(chatId, messageId, text, parseMode, null);
+    }
+
+    /**
+     * 编辑消息文本并可选地变更按钮：buttons 为 null 保持原按钮不变，空列表清除按钮，非空则替换为该组按钮。
+     */
+    void editMessageText(Long chatId, Integer messageId, String text, String parseMode, List<InlineButton> buttons);
 
     default void editInlineMessageText(String inlineMessageId, String text, String parseMode) {
         editInlineMessageText(inlineMessageId, text, parseMode, false);

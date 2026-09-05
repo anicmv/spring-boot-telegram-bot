@@ -9,8 +9,11 @@ import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.BotUserProfile;
+import com.github.anicmv.telegrambot.model.InlineButton;
+import com.github.anicmv.telegrambot.model.ProfileAllowStatus;
 import com.github.anicmv.telegrambot.repository.BotUserRepository;
 import com.github.anicmv.telegrambot.repository.ChatMessageRepository;
+import com.github.anicmv.telegrambot.repository.ProfileAllowUserRepository;
 import com.github.anicmv.telegrambot.repository.UserProfileRepository;
 import com.github.anicmv.telegrambot.service.ProfileAnalysisService;
 import com.github.anicmv.telegrambot.utils.BotUtil;
@@ -22,7 +25,7 @@ import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 
 import java.time.format.DateTimeFormatter;
-import java.util.Set;
+import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
 
 /**
@@ -44,6 +47,7 @@ public class ProfileCommandHandler implements BotCommandHandler {
     private final BotUserRepository botUserRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ProfileAnalysisService profileAnalysisService;
+    private final ProfileAllowUserRepository profileAllowUserRepository;
     private final BotProperties botProperties;
     private final TaskExecutor botBackgroundExecutor;
 
@@ -52,6 +56,7 @@ public class ProfileCommandHandler implements BotCommandHandler {
                                  BotUserRepository botUserRepository,
                                  ChatMessageRepository chatMessageRepository,
                                  ProfileAnalysisService profileAnalysisService,
+                                 ProfileAllowUserRepository profileAllowUserRepository,
                                  BotProperties botProperties,
                                  @Qualifier("botBackgroundExecutor") TaskExecutor botBackgroundExecutor) {
         this.messenger = messenger;
@@ -59,15 +64,44 @@ public class ProfileCommandHandler implements BotCommandHandler {
         this.botUserRepository = botUserRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.profileAnalysisService = profileAnalysisService;
+        this.profileAllowUserRepository = profileAllowUserRepository;
         this.botProperties = botProperties;
         this.botBackgroundExecutor = botBackgroundExecutor;
     }
 
+    /**
+     * admin 免白名单直接用；其余用户须已被授权落库（profile_allow_user 表 APPROVED）。
+     */
+    private boolean canUse(Long userId) {
+        return botProperties.getProfile().getAdminUserIds().contains(userId)
+                || profileAllowUserRepository.isApproved(userId);
+    }
+
+    /**
+     * 无权限用户发起授权申请：落 PENDING 并发带 ✅/❌ 按钮的审批消息，仅 admin 点击生效；
+     * 已有待审申请时只回等待提示，防刷。
+     */
+    private void requestAccess(BotContext context) {
+        Long userId = context.userId();
+        boolean pending = profileAllowUserRepository.findByTelegramId(userId)
+                .map(entity -> ProfileAllowStatus.PENDING.name().equals(entity.getStatus()))
+                .orElse(false);
+        if (pending) {
+            replyPlain(context, "已有画像使用申请待管理员确认，请耐心稍候。");
+            return;
+        }
+        profileAllowUserRepository.createOrResetRequest(userId);
+        String prefix = BotConstant.CALLBACK_ACTION_PROFILE_AUTH + ":";
+        messenger.sendReplyTextWithInlineButtons(context.chatId(), context.message().getMessageId(),
+                "🙋 用户 ID " + userId + " 申请使用 /profile 用户画像。\n请管理员点击按钮处理（仅管理员点击有效）。",
+                List.of(new InlineButton("✅ 授权", prefix + "Y:" + userId),
+                        new InlineButton("❌ 拒绝", prefix + "N:" + userId)));
+    }
+
     @Override
     public void execute(BotContext context) {
-        Set<Long> allowUserIds = botProperties.getProfile().getAllowUserIds();
-        if (!allowUserIds.isEmpty() && !allowUserIds.contains(context.userId())) {
-            replyPlain(context, "你不在画像命令白名单内，无法使用 /profile。");
+        if (!canUse(context.userId())) {
+            requestAccess(context);
             return;
         }
         ProfileQuery query = resolveQuery(context);
@@ -118,9 +152,13 @@ public class ProfileCommandHandler implements BotCommandHandler {
     private void answerInBackground(BotContext context, Long targetUserId, Integer progressMessageId) {
         String text;
         try {
+            boolean regenerate = botProperties.getProfile().isRegenerateOnQuery();
             UserProfileEntity profile = userProfileRepository.findByTelegramId(targetUserId).orElse(null);
-            if (profile == null) {
-                profile = generateOnDemand(context, targetUserId, progressMessageId);
+            if (profile == null || regenerate) {
+                UserProfileEntity fresh = generateOnDemand(context, targetUserId, progressMessageId, regenerate);
+                if (fresh != null) {
+                    profile = fresh;
+                }
             }
             text = profile == null
                     ? BotUtil.escapeHtml("该用户还没有画像数据（需要白名单群内有可分析的聊天记录）。")
@@ -133,13 +171,14 @@ public class ProfileCommandHandler implements BotCommandHandler {
     }
 
     /**
-     * 库里没有画像时现场跑一轮分析（与定时任务同一批处理逻辑，单批最多 batch-message-limit 条），
-     * 生成后立即返回画像；后续增量仍由定时任务滚动合并。
+     * 现场跑一轮分析（与定时任务同一批处理逻辑，单批最多 batch-message-limit 条），
+     * 生成后立即返回画像；regenerate 为 true 时忽略存量画像全量重新生成。
      */
-    private UserProfileEntity generateOnDemand(BotContext context, Long targetUserId, Integer progressMessageId) {
+    private UserProfileEntity generateOnDemand(BotContext context, Long targetUserId, Integer progressMessageId,
+                                               boolean regenerate) {
         editProgress(context, progressMessageId, "🔬 正在生成画像...");
         try {
-            ProfileAnalysisService.Result result = profileAnalysisService.analyzeUser(targetUserId);
+            ProfileAnalysisService.Result result = profileAnalysisService.analyzeUser(targetUserId, regenerate);
             if (result == ProfileAnalysisService.Result.SKIPPED) {
                 return null;
             }

@@ -47,6 +47,17 @@ CREATE TABLE IF NOT EXISTS user_profile (
     UNIQUE KEY uk_user_profile_telegram_id (telegram_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户画像表';
 
+CREATE TABLE IF NOT EXISTS profile_allow_user (
+    id               BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    telegram_user_id BIGINT NOT NULL COMMENT '申请/授权 /profile 的 Telegram 用户 ID',
+    status           VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '状态：PENDING/APPROVED/DENIED',
+    granted_by       BIGINT DEFAULT NULL COMMENT '授权管理员 Telegram ID',
+    created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_profile_allow_user_telegram_id (telegram_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='画像命令白名单申请表';
+
 CREATE TABLE IF NOT EXISTS chat_image (
     id                  BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     image_type          VARCHAR(16) NOT NULL COMMENT '图片类型：sticker/photo',

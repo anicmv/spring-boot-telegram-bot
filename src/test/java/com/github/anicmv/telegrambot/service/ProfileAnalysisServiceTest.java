@@ -173,6 +173,28 @@ class ProfileAnalysisServiceTest {
     }
 
     @Test
+    void regenerateShouldIgnoreOldProfileAndRestartFromZero() {
+        when(chatMessageRepository.findNewerThanByUser(any(), eq(1L), eq(0L), anyInt()))
+                .thenReturn(List.of(message(101L, "新消息")));
+        when(aiChatService.chatWithUsage(anyString(), anyString())).thenReturn(
+                new AiChatService.ChatResult("{\"summary\":\"全量重生的画像\"}", 8L));
+        when(aiChatService.currentModel()).thenReturn("qwen3.8-flash");
+
+        ProfileAnalysisService.Result result = service.analyzeUser(1L, true);
+
+        assertEquals(ProfileAnalysisService.Result.SUCCESS, result);
+        // 全量重生不读存量画像
+        verify(userProfileRepository, never()).findByTelegramId(any());
+        ArgumentCaptor<UserProfileEntity> captor = ArgumentCaptor.forClass(UserProfileEntity.class);
+        verify(userProfileRepository).upsert(captor.capture());
+        UserProfileEntity saved = captor.getValue();
+        assertEquals("全量重生的画像", saved.getSummary());
+        // 全量重生重新起算：游标从头取数、消息数不叠加旧值
+        assertEquals(101L, saved.getLastAnalyzedMessageId());
+        assertEquals(1, saved.getAnalyzedMessageCount());
+    }
+
+    @Test
     void stripCodeFenceShouldRemoveMarkdownFence() {
         assertEquals("{\"a\":1}", ProfileAnalysisService.stripCodeFence("```json\n{\"a\":1}\n```"));
         assertEquals("{\"a\":1}", ProfileAnalysisService.stripCodeFence("{\"a\":1}"));

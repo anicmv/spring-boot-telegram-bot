@@ -1,16 +1,21 @@
 package com.github.anicmv.telegrambot.handler.command.impl;
 
 import com.github.anicmv.telegrambot.config.BotProperties;
+import com.github.anicmv.telegrambot.entity.ProfileAllowUserEntity;
 import com.github.anicmv.telegrambot.entity.UserProfileEntity;
 import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.BotUserProfile;
+import com.github.anicmv.telegrambot.model.InlineButton;
+import com.github.anicmv.telegrambot.model.ProfileAllowStatus;
 import com.github.anicmv.telegrambot.model.UpdateType;
 import com.github.anicmv.telegrambot.repository.BotUserRepository;
 import com.github.anicmv.telegrambot.repository.ChatMessageRepository;
+import com.github.anicmv.telegrambot.repository.ProfileAllowUserRepository;
 import com.github.anicmv.telegrambot.repository.UserProfileRepository;
 import com.github.anicmv.telegrambot.service.ProfileAnalysisService;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,9 +28,11 @@ import org.telegram.telegrambots.meta.api.objects.message.Message;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,6 +55,9 @@ class ProfileCommandHandlerTest {
     @Mock
     private ProfileAnalysisService profileAnalysisService;
 
+    @Mock
+    private ProfileAllowUserRepository profileAllowUserRepository;
+
     private BotProperties properties;
     private ProfileCommandHandler handler;
 
@@ -55,18 +65,20 @@ class ProfileCommandHandlerTest {
     void setUp() {
         properties = new BotProperties();
         handler = new ProfileCommandHandler(messenger, userProfileRepository, botUserRepository,
-                chatMessageRepository, profileAnalysisService, properties, Runnable::run);
+                chatMessageRepository, profileAnalysisService, profileAllowUserRepository, properties, Runnable::run);
+        // 默认视为已授权用户，走画像主流程；申请流程用例单独覆盖为 false
+        lenient().when(profileAllowUserRepository.isApproved(anyLong())).thenReturn(true);
     }
 
     @Test
     void shouldShowFriendlyTextWhenNoProfileAndNoMessages() {
         when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
         when(userProfileRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
-        when(profileAnalysisService.analyzeUser(999L)).thenReturn(ProfileAnalysisService.Result.SKIPPED);
+        when(profileAnalysisService.analyzeUser(999L, true)).thenReturn(ProfileAnalysisService.Result.SKIPPED);
 
         handler.execute(context("/profile"));
 
-        verify(profileAnalysisService).analyzeUser(999L);
+        verify(profileAnalysisService).analyzeUser(999L, true);
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(messenger, org.mockito.Mockito.atLeastOnce())
                 .editMessageText(eq(-100123L), eq(700), captor.capture(), eq("HTML"));
@@ -81,14 +93,14 @@ class ProfileCommandHandlerTest {
         when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
         when(userProfileRepository.findByTelegramId(999L))
                 .thenReturn(Optional.empty(), Optional.of(generated));
-        when(profileAnalysisService.analyzeUser(999L)).thenReturn(ProfileAnalysisService.Result.SUCCESS);
+        when(profileAnalysisService.analyzeUser(999L, true)).thenReturn(ProfileAnalysisService.Result.SUCCESS);
         when(botUserRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
         when(chatMessageRepository.findStatsByUser(any(), eq(999L), any())).thenReturn(
                 new ChatMessageRepository.UserMessageStats(1, LocalDateTime.now().minusDays(3), LocalDateTime.now()));
 
         handler.execute(context("/profile"));
 
-        verify(profileAnalysisService).analyzeUser(999L);
+        verify(profileAnalysisService).analyzeUser(999L, true);
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(messenger, org.mockito.Mockito.atLeastOnce())
                 .editMessageText(eq(-100123L), eq(700), captor.capture(), eq("HTML"));
@@ -98,6 +110,7 @@ class ProfileCommandHandlerTest {
 
     @Test
     void shouldFormatExistingProfile() {
+        properties.getProfile().setRegenerateOnQuery(false);
         UserProfileEntity profile = new UserProfileEntity();
         profile.setTelegramUserId(999L);
         profile.setSummary("段落一\n\n段落二，群里的整活小王。");
@@ -127,26 +140,79 @@ class ProfileCommandHandlerTest {
     }
 
     @Test
-    void shouldRejectUserNotInWhitelist() {
-        properties.getProfile().getAllowUserIds().add(123456L);
+    void shouldForceRegenerateWhenExistingProfileAndSwitchOn() {
+        UserProfileEntity stale = new UserProfileEntity();
+        stale.setTelegramUserId(999L);
+        stale.setSummary("旧版一句话人设");
+        UserProfileEntity fresh = new UserProfileEntity();
+        fresh.setTelegramUserId(999L);
+        fresh.setSummary("重新生成的画像正文");
+        when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
+        // 第一次查库存量画像，现场重新生成后再查返回新画像
+        when(userProfileRepository.findByTelegramId(999L))
+                .thenReturn(Optional.of(stale), Optional.of(fresh));
+        when(profileAnalysisService.analyzeUser(999L, true)).thenReturn(ProfileAnalysisService.Result.SUCCESS);
+        when(botUserRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
+        when(chatMessageRepository.findStatsByUser(any(), eq(999L), any())).thenReturn(
+                new ChatMessageRepository.UserMessageStats(0, null, null));
 
         handler.execute(context("/profile"));
 
+        verify(profileAnalysisService).analyzeUser(999L, true);
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(messenger).sendReplyText(eq(-100123L), eq(7), captor.capture());
-        assertTrue(captor.getValue().contains("白名单"));
+        verify(messenger, org.mockito.Mockito.atLeastOnce())
+                .editMessageText(eq(-100123L), eq(700), captor.capture(), eq("HTML"));
+        String finalText = captor.getAllValues().getLast();
+        assertTrue(finalText.contains("重新生成的画像正文"));
+        assertTrue(!finalText.contains("旧版一句话人设"));
+    }
+
+    @Test
+    void unauthorizedUserShouldTriggerApprovalRequestWithButtons() {
+        when(profileAllowUserRepository.isApproved(999L)).thenReturn(false);
+        when(profileAllowUserRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
+
+        handler.execute(context("/profile"));
+
+        verify(profileAllowUserRepository).createOrResetRequest(999L);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<InlineButton>> captor = ArgumentCaptor.forClass(List.class);
+        verify(messenger).sendReplyTextWithInlineButtons(eq(-100123L), eq(7), anyString(), captor.capture());
+        List<InlineButton> buttons = captor.getValue();
+        assertEquals(2, buttons.size());
+        assertTrue(buttons.get(0).callbackData().startsWith("PROFILE_AUTH:Y:999"));
+        assertTrue(buttons.get(1).callbackData().startsWith("PROFILE_AUTH:N:999"));
         verify(userProfileRepository, never()).findByTelegramId(anyLong());
     }
 
     @Test
-    void shouldAllowUserInWhitelist() {
-        properties.getProfile().getAllowUserIds().add(999L);
-        when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
-        when(userProfileRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
-        when(profileAnalysisService.analyzeUser(999L)).thenReturn(ProfileAnalysisService.Result.SKIPPED);
+    void pendingRequestShouldOnlyShowWaitingHint() {
+        when(profileAllowUserRepository.isApproved(999L)).thenReturn(false);
+        ProfileAllowUserEntity pending = new ProfileAllowUserEntity();
+        pending.setTelegramUserId(999L);
+        pending.setStatus(ProfileAllowStatus.PENDING.name());
+        when(profileAllowUserRepository.findByTelegramId(999L)).thenReturn(Optional.of(pending));
 
         handler.execute(context("/profile"));
 
+        verify(profileAllowUserRepository, never()).createOrResetRequest(anyLong());
+        verify(messenger, never()).sendReplyTextWithInlineButtons(anyLong(), any(), anyString(), any());
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(messenger).sendReplyText(eq(-100123L), eq(7), captor.capture());
+        assertTrue(captor.getValue().contains("待管理员确认"));
+    }
+
+    @Test
+    void adminShouldBypassDatabaseWhitelist() {
+        properties.getProfile().getAdminUserIds().add(999L);
+        when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
+        when(userProfileRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
+        when(profileAnalysisService.analyzeUser(999L, true)).thenReturn(ProfileAnalysisService.Result.SKIPPED);
+
+        handler.execute(context("/profile"));
+
+        // admin 短路放行，不查白名单库
+        verify(profileAllowUserRepository, never()).isApproved(anyLong());
         verify(userProfileRepository).findByTelegramId(999L);
     }
 
@@ -168,7 +234,7 @@ class ProfileCommandHandlerTest {
         verify(messenger).sendReplyText(eq(-100123L), eq(7), captor.capture());
         assertTrue(captor.getValue().contains("机器人账号不支持"));
         verify(userProfileRepository, never()).findByTelegramId(anyLong());
-        verify(profileAnalysisService, never()).analyzeUser(anyLong());
+        verify(profileAnalysisService, never()).analyzeUser(anyLong(), anyBoolean());
     }
 
     @Test

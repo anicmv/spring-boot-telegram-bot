@@ -105,7 +105,7 @@ public class ProfileAnalysisService {
 
     private Result analyzeOne(Long userId, BotProperties.Profile props, Consumer<String> progress) {
         try {
-            return analyzeUser(userId, props, progress);
+            return analyzeUser(userId, props, false, progress);
         } catch (Exception e) {
             log.error("用户画像分析失败: userId={}", userId, e);
             progress.accept("用户 " + userId + " 分析失败: " + e.getMessage());
@@ -122,12 +122,19 @@ public class ProfileAnalysisService {
      * 分析单个用户（供 /profile 首次现场生成等场景调用），进度回调为空实现。
      */
     public Result analyzeUser(Long userId) {
-        return analyzeUser(userId, botProperties.getProfile(), message -> {
+        return analyzeUser(userId, false);
+    }
+
+    /**
+     * 分析单个用户，regenerate 为 true 时忽略存量画像、从最早消息全量重新生成（覆盖旧画像）。
+     */
+    public Result analyzeUser(Long userId, boolean regenerate) {
+        return analyzeUser(userId, botProperties.getProfile(), regenerate, message -> {
         });
     }
 
-    private Result analyzeUser(Long userId, BotProperties.Profile props, Consumer<String> progress) {
-        UserProfileEntity oldProfile = userProfileRepository.findByTelegramId(userId).orElse(null);
+    private Result analyzeUser(Long userId, BotProperties.Profile props, boolean regenerate, Consumer<String> progress) {
+        UserProfileEntity oldProfile = regenerate ? null : userProfileRepository.findByTelegramId(userId).orElse(null);
         long cursor = oldProfile != null && oldProfile.getLastAnalyzedMessageId() != null
                 ? oldProfile.getLastAnalyzedMessageId() : 0L;
         List<ChatMessageEntity> messages = chatMessageRepository.findNewerThanByUser(

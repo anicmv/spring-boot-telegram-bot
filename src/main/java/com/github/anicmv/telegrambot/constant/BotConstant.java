@@ -36,6 +36,8 @@ public final class BotConstant {
     public static final String CMD_INFO = "/info";
 
     public static final String CALLBACK_ACTION_PING = "PING";
+    /** /profile 白名单授权按钮，payload 形如 Y:<userId> / N:<userId>。 */
+    public static final String CALLBACK_ACTION_PROFILE_AUTH = "PROFILE_AUTH";
     public static final String CALLBACK_ACTION_NOOP = "NOOP";
     public static final String CALLBACK_ACTION_BILI = "CALLBACK_BILI";
     public static final String CALLBACK_ACTION_XP_PREFIX = "XP_";
