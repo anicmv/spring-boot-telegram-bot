@@ -34,7 +34,11 @@ import java.util.zip.InflaterInputStream;
 @Log4j2
 public class DoubanDbInlineQueryResultProvider implements InlineQueryResultProvider {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public DoubanDbInlineQueryResultProvider(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
     private static final String QUERY_PREFIX = "db";
     private static final int DB_PAGE_SIZE = 20;
 
@@ -70,7 +74,7 @@ public class DoubanDbInlineQueryResultProvider implements InlineQueryResultProvi
             return List.of(searchResult(keyword));
         }
         try {
-            JsonNode root = OBJECT_MAPPER.readTree(normalizeJsonPayload(response));
+            JsonNode root = objectMapper.readTree(normalizeJsonPayload(response));
             JsonNode items = root.path("items");
             List<InlineQueryResult> results = new ArrayList<>();
             for (JsonNode item : items) {
@@ -240,7 +244,7 @@ public class DoubanDbInlineQueryResultProvider implements InlineQueryResultProvi
             return "豆瓣搜索失败：未获取到响应。\n关键词：" + keyword;
         }
         try {
-            JsonNode root = OBJECT_MAPPER.readTree(normalizeJsonPayload(response));
+            JsonNode root = objectMapper.readTree(normalizeJsonPayload(response));
             JsonNode items = root.path("items");
             for (JsonNode item : items) {
                 if (!"subject".equals(item.path("layout").asText())) {

@@ -2,6 +2,8 @@ package com.github.anicmv.telegrambot.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.MissingNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.anicmv.telegrambot.utils.BotUtil;
 import com.github.anicmv.telegrambot.utils.HttpUtil;
 import java.io.IOException;
@@ -17,6 +19,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.StreamSupport;
@@ -58,13 +61,23 @@ public class DouyinVideoService {
             Pattern.compile("\"itemId\"\\s*:\\s*\"(\\d+)\"")
     };
 
+    /** 解析来源策略：按顺序尝试，命中即停。参数为 (videoId, originalUrl)。 */
+    private record ResolveSource(String name, BiFunction<String, String, JsonNode> resolver) {
+    }
+
     private final ObjectMapper objectMapper;
     private final String cookie;
+    private final List<ResolveSource> resolveSources;
 
-    public DouyinVideoService(@Value("${bot.douyin.cookie:${DOUYIN_COOKIE:}}") String cookie) {
-        this.objectMapper = new ObjectMapper();
+    public DouyinVideoService(ObjectMapper objectMapper,
+                              @Value("${bot.douyin.cookie:${DOUYIN_COOKIE:}}") String cookie) {
+        this.objectMapper = objectMapper;
         this.cookie = cookie == null ? "" : cookie.strip();
-        log.info("Douyin cookie configured: {}", !this.cookie.isBlank());
+        this.resolveSources = List.of(
+                new ResolveSource("detail_api", this::requestAwemeDetail),
+                new ResolveSource("web_page_fallback", this::requestPageAwemeDetail),
+                new ResolveSource("mobile_share_fallback", (videoId, originalUrl) -> requestMobileShareAwemeDetail(videoId))
+        );
     }
 
     public DownloadedVideo download(String text) {
@@ -96,27 +109,16 @@ public class DouyinVideoService {
 
         JsonNode aweme = null;
         String source = "";
-        JsonNode data = requestAwemeDetail(videoId, originalUrl);
-        if (data != null && !data.path("aweme_detail").isMissingNode()) {
-            aweme = data.path("aweme_detail");
-            source = "detail_api";
-            log.info("通过详情接口解析到视频信息。videoId={}", videoId);
-        }
-        if (aweme == null || aweme.isMissingNode() || aweme.isNull()) {
-            aweme = requestPageAwemeDetail(videoId, originalUrl);
-            if (aweme != null && !aweme.isMissingNode() && !aweme.isNull()) {
-                source = "web_page_fallback";
-                log.info("通过网页兜底解析到视频信息。videoId={}", videoId);
+        for (ResolveSource candidate : resolveSources) {
+            JsonNode found = candidate.resolver().apply(videoId, originalUrl);
+            if (!missing(found)) {
+                aweme = found;
+                source = candidate.name();
+                log.info("通过 {} 解析到视频信息。videoId={}", source, videoId);
+                break;
             }
         }
-        if (aweme == null || aweme.isMissingNode() || aweme.isNull()) {
-            aweme = requestMobileShareAwemeDetail(videoId);
-            if (aweme != null && !aweme.isMissingNode() && !aweme.isNull()) {
-                source = "mobile_share_fallback";
-                log.info("通过移动分享页兜底解析到视频信息。videoId={}", videoId);
-            }
-        }
-        if (aweme == null || aweme.isMissingNode() || aweme.isNull()) {
+        if (aweme == null) {
             if (cookie.isBlank()) {
                 throw new IllegalStateException("无法获取视频详情，且未读取到 bot.douyin.cookie 或 DOUYIN_COOKIE。");
             }
@@ -190,8 +192,9 @@ public class DouyinVideoService {
             }
             try {
                 JsonNode data = objectMapper.readTree(response);
-                if (!data.path("aweme_detail").isMissingNode() && !data.path("aweme_detail").isNull()) {
-                    return data;
+                JsonNode detail = data.path("aweme_detail");
+                if (!missing(detail)) {
+                    return detail;
                 }
                 log.warn("Douyin detail API returned no aweme_detail. videoId={}, cookieConfigured={}, status_code={}, status_msg={}",
                         videoId, !cookie.isBlank(), data.path("status_code").asText(""), data.path("status_msg").asText(""));
@@ -242,15 +245,15 @@ public class DouyinVideoService {
             author = decodeJsonEscaped(authorMatcher.group(1));
         }
 
-        com.fasterxml.jackson.databind.node.ObjectNode aweme = objectMapper.createObjectNode();
+        ObjectNode aweme = objectMapper.createObjectNode();
         aweme.put("aweme_id", videoId);
         aweme.put("desc", desc);
-        com.fasterxml.jackson.databind.node.ObjectNode authorNode = objectMapper.createObjectNode();
+        ObjectNode authorNode = objectMapper.createObjectNode();
         authorNode.put("nickname", author);
         aweme.set("author", authorNode);
-        com.fasterxml.jackson.databind.node.ObjectNode playAddrNode = objectMapper.createObjectNode();
+        ObjectNode playAddrNode = objectMapper.createObjectNode();
         playAddrNode.set("url_list", objectMapper.createArrayNode().add(playUrl));
-        com.fasterxml.jackson.databind.node.ObjectNode videoNode = objectMapper.createObjectNode();
+        ObjectNode videoNode = objectMapper.createObjectNode();
         videoNode.set("play_addr", playAddrNode);
         aweme.set("video", videoNode);
         return aweme;
@@ -284,7 +287,7 @@ public class DouyinVideoService {
         }
         String json = matcher.group(1);
         if ("RENDER_DATA".equals(scriptId)) {
-            json = java.net.URLDecoder.decode(json, java.nio.charset.StandardCharsets.UTF_8);
+            json = URLDecoder.decode(json, StandardCharsets.UTF_8);
         }
         try {
             return objectMapper.readTree(json);
@@ -295,7 +298,7 @@ public class DouyinVideoService {
     }
 
     private JsonNode findVideoNode(JsonNode node, String videoId) {
-        if (node == null || node.isMissingNode() || node.isNull()) {
+        if (missing(node)) {
             return null;
         }
         if (node.isObject()) {
@@ -588,7 +591,7 @@ public class DouyinVideoService {
     }
 
     private static String textValue(JsonNode node, String fallback) {
-        if (node == null || node.isMissingNode() || node.isNull()) {
+        if (missing(node)) {
             return fallback;
         }
         return node.asText(fallback);
@@ -617,11 +620,16 @@ public class DouyinVideoService {
 
     private static JsonNode firstNode(JsonNode... nodes) {
         for (JsonNode node : nodes) {
-            if (node != null && !node.isMissingNode() && !node.isNull()) {
+            if (!missing(node)) {
                 return node;
             }
         }
-        return com.fasterxml.jackson.databind.node.MissingNode.getInstance();
+        return MissingNode.getInstance();
+    }
+
+    /** 空节点：java null / missing / JSON null。 */
+    private static boolean missing(JsonNode node) {
+        return node == null || node.isMissingNode() || node.isNull();
     }
 
     public record DownloadedVideo(String id, String desc, String author, String sourceUrl, String realVideoUrl, Path path) {

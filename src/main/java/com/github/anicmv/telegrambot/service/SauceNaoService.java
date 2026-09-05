@@ -26,10 +26,9 @@ public class SauceNaoService {
     private final String apiKey;
     private final ObjectMapper objectMapper;
 
-    public SauceNaoService(@Value("${bot.saucenao.api-key:}") String apiKey) {
+    public SauceNaoService(ObjectMapper objectMapper, @Value("${bot.saucenao.api-key:}") String apiKey) {
+        this.objectMapper = objectMapper;
         this.apiKey = apiKey == null ? "" : apiKey.strip();
-        this.objectMapper = new ObjectMapper();
-        log.info("SauceNAO apiKey configured: {}", !this.apiKey.isBlank());
     }
 
     public record SearchResult(
