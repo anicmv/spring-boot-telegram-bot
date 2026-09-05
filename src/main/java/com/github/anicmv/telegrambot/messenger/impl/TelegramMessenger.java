@@ -354,6 +354,11 @@ public class TelegramMessenger implements Messenger {
                 }
             }
         } catch (TelegramApiException e) {
+            // 账号已注销/ID 已变更：与"确实没有头像"区分开，交给上层给出准确提示
+            if (e.getMessage() != null && e.getMessage().contains("user not found")) {
+                log.info("用户头像集合拉取: userId={} 账号不存在（已注销或 ID 已变更）", telegramUserId);
+                return null;
+            }
             log.warn("Failed to get user avatar list for {}", telegramUserId, e);
         }
         log.info("用户头像集合拉取: userId={}, 取到 {} 张", telegramUserId, fileIds.size());

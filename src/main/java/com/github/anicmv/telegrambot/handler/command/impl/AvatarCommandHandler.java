@@ -39,6 +39,11 @@ public class AvatarCommandHandler implements BotCommandHandler {
         String displayName = displayName(target);
         List<String> fileIds = messenger.getUserAvatarFileIds(target.getId());
         Integer replyTo = message != null ? message.getMessageId() : null;
+        if (fileIds == null) {
+            messenger.sendText(context.chatId(), displayName + " 的账号已注销或 ID 已变更（解析到的用户 ID: "
+                    + target.getId() + "），历史消息里嵌的还是旧 ID。请让对方重新发一条消息后再回复 /avatars。");
+            return;
+        }
         if (fileIds.isEmpty()) {
             messenger.sendText(context.chatId(), displayName + " 没有可用的头像（解析到的用户 ID: "
                     + target.getId() + "）。");

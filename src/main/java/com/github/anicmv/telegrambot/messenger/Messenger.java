@@ -111,6 +111,7 @@ public interface Messenger {
 
     /**
      * 获取用户全部历史头像的 file_id（每张取最大尺寸，新的在前，最多 100 张）。
+     * 空列表表示该账号确实没有头像；返回 null 表示目标账号不存在（已注销或 ID 已变更）。
      */
     List<String> getUserAvatarFileIds(Long telegramUserId);
 

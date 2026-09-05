@@ -85,6 +85,25 @@ class AvatarCommandHandlerTest {
     }
 
     @Test
+    void shouldNotifyWhenTargetAccountMissing() {
+        Message replyTo = new Message();
+        replyTo.setFrom(user(201L, "old_account"));
+        Message command = new Message();
+        command.setMessageId(7);
+        command.setFrom(user(999L, "caller"));
+        command.setReplyToMessage(replyTo);
+
+        when(messenger.getUserAvatarFileIds(201L)).thenReturn(null);
+
+        handler.execute(context("/avatars", command));
+
+        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+        verify(messenger).sendText(eq(-100123L), captor.capture());
+        assertTrue(captor.getValue().contains("已注销或 ID 已变更"));
+        verify(messenger, never()).sendPhotoAlbumByFileIds(anyLong(), any(), anyList(), anyString());
+    }
+
+    @Test
     void displayNameShouldFallBackToFirstName() {
         User noUsername = User.builder().id(1L).firstName("小明").isBot(false).build();
         Message command = new Message();
