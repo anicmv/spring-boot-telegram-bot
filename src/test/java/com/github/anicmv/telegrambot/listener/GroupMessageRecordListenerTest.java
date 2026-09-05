@@ -172,7 +172,7 @@ class GroupMessageRecordListenerTest {
     private GroupMessageRecordListener newListener(TaskExecutor taskExecutor) {
         List<GroupMessageFilter> filters = List.of(new GroupChatFilter(), new BotMessageFilter(),
                 new RecordConfigFilter(properties), new ForwardedMessageFilter(),
-                new CommandMessageFilter(new BotCommandRegistry(List.of(new PingTestHandler()))),
+                new CommandMessageFilter(new BotCommandRegistry(List.of(new PingTestHandler()), "test_bot")),
                 new InlineModeMessageFilter());
         return new GroupMessageRecordListener(chatMessageRepository, taskExecutor, filters);
     }

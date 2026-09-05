@@ -24,7 +24,8 @@ import org.springframework.stereotype.Component;
  * @description /ai 命令处理器。
  */
 @Log4j2
-@BotCommand(value = BotConstant.CMD_AI, description = "调用 DeepSeek，对话格式：/ai 你的问题，或回复一条消息后发送 /ai")
+@BotCommand(value = BotConstant.CMD_AI, groupRequireMention = true,
+        description = "调用 AI，私聊：/ai 你的问题；群聊：/ai@你的Bot 你的问题，或回复一条消息后发送")
 @Component
 public class AiCommandHandler implements BotCommandHandler {
 

@@ -29,4 +29,10 @@ public @interface BotCommand {
      * 命令描述，非空时展示在 {@code /help} 中，为空表示不展示。
      */
     String description() default "";
+
+    /**
+     * 群聊（含频道）中是否要求全限定形式（如 {@code /ai@your_bot}）才触发；
+     * 私聊不受影响，裸命令（{@code /ai}）仍可触发。
+     */
+    boolean groupRequireMention() default false;
 }

@@ -125,8 +125,8 @@ public class BotConfiguration {
     }
 
     @Bean
-    BotCommandRegistry botCommandRegistry(List<BotCommandHandler> handlers) {
-        return new BotCommandRegistry(handlers);
+    BotCommandRegistry botCommandRegistry(List<BotCommandHandler> handlers, BotProperties properties) {
+        return new BotCommandRegistry(handlers, properties.getUsername());
     }
 
     @Bean

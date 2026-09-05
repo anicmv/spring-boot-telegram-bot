@@ -24,7 +24,7 @@ class HelpCommandHandlerTest {
     @Test
     void shouldSendAggregatedHelpTextWithDescribedCommandsOnly() {
         Messenger messenger = mock(Messenger.class);
-        BotCommandRegistry registry = new BotCommandRegistry(List.of(new PingTestHandler(), new HiddenTestHandler()));
+        BotCommandRegistry registry = new BotCommandRegistry(List.of(new PingTestHandler(), new HiddenTestHandler()), "test_bot");
         HelpCommandHandler handler = new HelpCommandHandler(messenger, registry);
         BotContext context = new BotContext(null, UpdateType.MESSAGE, 1L, 2L, "/help", null, null, null, null);
 
@@ -41,7 +41,7 @@ class HelpCommandHandlerTest {
     @Test
     void shouldReplyWhenTriggeredByMessage() {
         Messenger messenger = mock(Messenger.class);
-        BotCommandRegistry registry = new BotCommandRegistry(List.of(new PingTestHandler()));
+        BotCommandRegistry registry = new BotCommandRegistry(List.of(new PingTestHandler()), "test_bot");
         HelpCommandHandler handler = new HelpCommandHandler(messenger, registry);
         Message message = mock(Message.class);
         when(message.getMessageId()).thenReturn(5);

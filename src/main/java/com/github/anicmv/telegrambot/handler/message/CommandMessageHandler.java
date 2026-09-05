@@ -7,6 +7,7 @@ import com.github.anicmv.telegrambot.handler.command.BotCommandRegistry;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.UpdateType;
 import java.util.EnumSet;
+import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -40,7 +41,7 @@ public class CommandMessageHandler implements UpdateHandler {
     @Override
     public HandlerResult handle(BotContext context) {
         String commandText = context.text().split("\\s+")[0];
-        BotCommandHandler handler = commandRegistry.find(commandText);
+        BotCommandHandler handler = commandRegistry.find(commandText, isGroupChat(context));
         String chatType = context.message() != null && context.message().getChat() != null
                 ? String.valueOf(context.message().getChat().getType())
                 : "unknown";
@@ -53,6 +54,17 @@ public class CommandMessageHandler implements UpdateHandler {
         log.info("命令命中处理器: commandToken={}, handler={}", commandText, handler.getClass().getSimpleName());
         handler.execute(context);
         return HandlerResult.STOP;
+    }
+
+    /**
+     * 群聊（含超级群）中需 @ 提及的命令才允许触发，与 UpdateDispatcher 的群聊判定口径一致。
+     */
+    private boolean isGroupChat(BotContext context) {
+        if (context.message() == null || context.message().getChat() == null) {
+            return false;
+        }
+        Chat chat = context.message().getChat();
+        return chat.isGroupChat() || chat.isSuperGroupChat();
     }
 
     private static String abbreviate(String text) {
