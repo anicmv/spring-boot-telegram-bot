@@ -20,10 +20,12 @@ import com.github.anicmv.telegrambot.utils.BotUtil;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
@@ -50,6 +52,7 @@ public class ProfileCommandHandler implements BotCommandHandler {
     private final ProfileAllowUserRepository profileAllowUserRepository;
     private final BotProperties botProperties;
     private final TaskExecutor botBackgroundExecutor;
+    private final TaskScheduler botScheduler;
 
     public ProfileCommandHandler(Messenger messenger,
                                  UserProfileRepository userProfileRepository,
@@ -58,7 +61,8 @@ public class ProfileCommandHandler implements BotCommandHandler {
                                  ProfileAnalysisService profileAnalysisService,
                                  ProfileAllowUserRepository profileAllowUserRepository,
                                  BotProperties botProperties,
-                                 @Qualifier("botBackgroundExecutor") TaskExecutor botBackgroundExecutor) {
+                                 @Qualifier("botBackgroundExecutor") TaskExecutor botBackgroundExecutor,
+                                 @Qualifier("botScheduler") TaskScheduler botScheduler) {
         this.messenger = messenger;
         this.userProfileRepository = userProfileRepository;
         this.botUserRepository = botUserRepository;
@@ -67,6 +71,7 @@ public class ProfileCommandHandler implements BotCommandHandler {
         this.profileAllowUserRepository = profileAllowUserRepository;
         this.botProperties = botProperties;
         this.botBackgroundExecutor = botBackgroundExecutor;
+        this.botScheduler = botScheduler;
     }
 
     /**
@@ -260,6 +265,29 @@ public class ProfileCommandHandler implements BotCommandHandler {
             return;
         }
         messenger.editMessageText(context.chatId(), progressMessageId, text, "HTML");
+        scheduleAutoDelete(context, progressMessageId);
+    }
+
+    /**
+     * 画像产出后延时清理画像消息与命令消息（减少群聊噪音）；审批申请消息不在清理范围。
+     */
+    private void scheduleAutoDelete(BotContext context, Integer profileMessageId) {
+        BotProperties.Profile props = botProperties.getProfile();
+        if (!props.isAutoDeleteEnabled()) {
+            return;
+        }
+        Instant fireAt = Instant.now().plusSeconds(Math.max(1L, props.getAutoDeleteDelaySeconds()));
+        deleteLater(context.chatId(), profileMessageId, fireAt);
+        if (context.message() != null) {
+            deleteLater(context.chatId(), context.message().getMessageId(), fireAt);
+        }
+    }
+
+    private void deleteLater(Long chatId, Integer messageId, Instant fireAt) {
+        if (chatId == null || messageId == null) {
+            return;
+        }
+        botScheduler.schedule(() -> messenger.deleteMessageSilently(chatId, messageId), fireAt);
     }
 
     private void replyPlain(BotContext context, String text) {

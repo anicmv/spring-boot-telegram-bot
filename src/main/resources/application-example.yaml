@@ -49,6 +49,9 @@ bot:
       regenerate-on-query: true
       # /profile 授权管理员：仅其点击授权按钮生效，且 admin 免白名单直接用 /profile；普通用户白名单存 profile_allow_user 表
       admin-user-ids: []
+      # 画像产出后延时清理命令消息与画像消息（审批申请消息不清理）
+      auto-delete-enabled: true
+      auto-delete-delay-seconds: 300
   douyin:
     # 是否下载并上传视频文件；false 时仅发送解析后的富文本信息。
     upload-video-enabled: true

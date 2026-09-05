@@ -58,6 +58,9 @@ class ProfileCommandHandlerTest {
     @Mock
     private ProfileAllowUserRepository profileAllowUserRepository;
 
+    @Mock
+    private org.springframework.scheduling.TaskScheduler botScheduler;
+
     private BotProperties properties;
     private ProfileCommandHandler handler;
 
@@ -65,7 +68,8 @@ class ProfileCommandHandlerTest {
     void setUp() {
         properties = new BotProperties();
         handler = new ProfileCommandHandler(messenger, userProfileRepository, botUserRepository,
-                chatMessageRepository, profileAnalysisService, profileAllowUserRepository, properties, Runnable::run);
+                chatMessageRepository, profileAnalysisService, profileAllowUserRepository, properties,
+                Runnable::run, botScheduler);
         // 默认视为已授权用户，走画像主流程；申请流程用例单独覆盖为 false
         lenient().when(profileAllowUserRepository.isApproved(anyLong())).thenReturn(true);
     }
@@ -137,6 +141,41 @@ class ProfileCommandHandlerTest {
         assertTrue(text.contains("样本 42 条 ｜ 群聊 2 个 ｜ 时间范围 05-31 ~ 07-24"));
         assertTrue(text.contains("<blockquote>段落一\n\n段落二"));
         assertTrue(text.contains("Powered by qwen3.8-flash ｜ 22,867 tokens"));
+    }
+
+    @Test
+    void shouldScheduleAutoDeleteForProfileAndCommandMessages() {
+        stubExistingProfileForDelivery();
+
+        handler.execute(context("/profile"));
+
+        verify(botScheduler, org.mockito.Mockito.times(2))
+                .schedule(any(Runnable.class), any(java.time.Instant.class));
+    }
+
+    @Test
+    void shouldNotScheduleAutoDeleteWhenDisabled() {
+        properties.getProfile().setAutoDeleteEnabled(false);
+        stubExistingProfileForDelivery();
+
+        handler.execute(context("/profile"));
+
+        verify(botScheduler, never()).schedule(any(Runnable.class), any(java.time.Instant.class));
+    }
+
+    /** 存量画像 + 关闭现场重生的投递路径。 */
+    private void stubExistingProfileForDelivery() {
+        properties.getProfile().setRegenerateOnQuery(false);
+        UserProfileEntity profile = new UserProfileEntity();
+        profile.setTelegramUserId(999L);
+        profile.setSummary("画像正文");
+        profile.setAnalyzedMessageCount(10);
+        profile.setLastAnalyzedMessageId(100L);
+        when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
+        when(userProfileRepository.findByTelegramId(999L)).thenReturn(Optional.of(profile));
+        when(botUserRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
+        when(chatMessageRepository.findStatsByUser(any(), eq(999L), eq(100L))).thenReturn(
+                new ChatMessageRepository.UserMessageStats(0, null, null));
     }
 
     @Test

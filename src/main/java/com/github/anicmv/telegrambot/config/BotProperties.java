@@ -108,6 +108,16 @@ public class BotProperties {
         private Set<Long> adminUserIds = new HashSet<>();
 
         /**
+         * 画像输出后是否延时清理命令消息与画像消息（减少群聊噪音）。
+         */
+        private boolean autoDeleteEnabled = true;
+
+        /**
+         * 画像消息自动清理延迟秒数。
+         */
+        private long autoDeleteDelaySeconds = 300L;
+
+        /**
          * analyzeAll 并行分析的并发用户数（每人一次 LLM 调用）。
          */
         private int analysisConcurrency = 4;
