@@ -7,6 +7,7 @@ import com.github.anicmv.telegrambot.entity.UserProfileEntity;
 import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.messenger.Replier;
+import com.github.anicmv.telegrambot.messenger.TextSpec;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.BotUserProfile;
 import com.github.anicmv.telegrambot.model.InlineButton;
@@ -97,10 +98,12 @@ public class ProfileCommandHandler implements BotCommandHandler {
         }
         profileAllowUserRepository.createOrResetRequest(userId);
         String prefix = BotConstant.CALLBACK_ACTION_PROFILE_AUTH + ":";
-        messenger.sendReplyTextWithInlineButtons(context.chatId(), context.message().getMessageId(),
-                "🙋 用户 ID " + userId + " 申请使用 /profile 用户画像。\n请管理员点击按钮处理（仅管理员点击有效）。",
-                List.of(new InlineButton("✅ 授权", prefix + "Y:" + userId),
-                        new InlineButton("❌ 拒绝", prefix + "N:" + userId)));
+        Integer approvalMessageId = messenger.sendTextMessage(TextSpec.of(context.chatId(),
+                        "🙋 用户 ID " + userId + " 申请使用 /profile 用户画像。\n请管理员点击按钮处理（仅管理员点击有效）。")
+                .replyTo(context.message().getMessageId())
+                .callbackButtons(List.of(new InlineButton("✅ 授权", prefix + "Y:" + userId),
+                        new InlineButton("❌ 拒绝", prefix + "N:" + userId))));
+        scheduleApprovalRequestDelete(context.chatId(), approvalMessageId);
     }
 
     @Override
@@ -269,7 +272,7 @@ public class ProfileCommandHandler implements BotCommandHandler {
     }
 
     /**
-     * 画像产出后延时清理画像消息与命令消息（减少群聊噪音）；审批申请消息不在清理范围。
+     * 画像产出后延时清理画像消息与命令消息（减少群聊噪音）。
      */
     private void scheduleAutoDelete(BotContext context, Integer profileMessageId) {
         BotProperties.Profile props = botProperties.getProfile();
@@ -281,6 +284,16 @@ public class ProfileCommandHandler implements BotCommandHandler {
         if (context.message() != null) {
             deleteLater(context.chatId(), context.message().getMessageId(), fireAt);
         }
+    }
+
+    /** 授权申请按钮消息短延时清理，提醒管理员尽快处理。 */
+    private void scheduleApprovalRequestDelete(Long chatId, Integer approvalMessageId) {
+        BotProperties.Profile props = botProperties.getProfile();
+        if (!props.isAutoDeleteEnabled()) {
+            return;
+        }
+        deleteLater(chatId, approvalMessageId,
+                Instant.now().plusSeconds(Math.max(1L, props.getApprovalRequestDeleteSeconds())));
     }
 
     private void deleteLater(Long chatId, Integer messageId, Instant fireAt) {

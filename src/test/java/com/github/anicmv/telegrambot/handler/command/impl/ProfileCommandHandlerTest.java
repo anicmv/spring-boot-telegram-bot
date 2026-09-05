@@ -4,6 +4,7 @@ import com.github.anicmv.telegrambot.config.BotProperties;
 import com.github.anicmv.telegrambot.entity.ProfileAllowUserEntity;
 import com.github.anicmv.telegrambot.entity.UserProfileEntity;
 import com.github.anicmv.telegrambot.messenger.Messenger;
+import com.github.anicmv.telegrambot.messenger.TextSpec;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.BotUserProfile;
 import com.github.anicmv.telegrambot.model.InlineButton;
@@ -149,8 +150,12 @@ class ProfileCommandHandlerTest {
 
         handler.execute(context("/profile"));
 
+        ArgumentCaptor<java.time.Instant> instantCaptor = ArgumentCaptor.forClass(java.time.Instant.class);
         verify(botScheduler, org.mockito.Mockito.times(2))
-                .schedule(any(Runnable.class), any(java.time.Instant.class));
+                .schedule(any(Runnable.class), instantCaptor.capture());
+        long delaySeconds = java.time.Duration.between(java.time.Instant.now(),
+                instantCaptor.getValue()).getSeconds();
+        assertTrue(delaySeconds >= 100 && delaySeconds <= 125, "expect ~120s delay, got " + delaySeconds);
     }
 
     @Test
@@ -210,17 +215,25 @@ class ProfileCommandHandlerTest {
     void unauthorizedUserShouldTriggerApprovalRequestWithButtons() {
         when(profileAllowUserRepository.isApproved(999L)).thenReturn(false);
         when(profileAllowUserRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
+        when(messenger.sendTextMessage(any(TextSpec.class))).thenReturn(801);
 
         handler.execute(context("/profile"));
 
         verify(profileAllowUserRepository).createOrResetRequest(999L);
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<InlineButton>> captor = ArgumentCaptor.forClass(List.class);
-        verify(messenger).sendReplyTextWithInlineButtons(eq(-100123L), eq(7), anyString(), captor.capture());
-        List<InlineButton> buttons = captor.getValue();
+        ArgumentCaptor<TextSpec> captor = ArgumentCaptor.forClass(TextSpec.class);
+        verify(messenger).sendTextMessage(captor.capture());
+        TextSpec spec = captor.getValue();
+        assertEquals(7, spec.replyToMessageId());
+        List<InlineButton> buttons = spec.callbackButtons();
         assertEquals(2, buttons.size());
         assertTrue(buttons.get(0).callbackData().startsWith("PROFILE_AUTH:Y:999"));
         assertTrue(buttons.get(1).callbackData().startsWith("PROFILE_AUTH:N:999"));
+        // 申请按钮消息安排一次短延时清理（~30s）
+        ArgumentCaptor<java.time.Instant> instantCaptor = ArgumentCaptor.forClass(java.time.Instant.class);
+        verify(botScheduler, org.mockito.Mockito.times(1))
+                .schedule(any(Runnable.class), instantCaptor.capture());
+        long delaySeconds = java.time.Duration.between(java.time.Instant.now(), instantCaptor.getValue()).getSeconds();
+        assertTrue(delaySeconds >= 20 && delaySeconds <= 35, "expect ~30s delay, got " + delaySeconds);
         verify(userProfileRepository, never()).findByTelegramId(anyLong());
     }
 
@@ -235,7 +248,7 @@ class ProfileCommandHandlerTest {
         handler.execute(context("/profile"));
 
         verify(profileAllowUserRepository, never()).createOrResetRequest(anyLong());
-        verify(messenger, never()).sendReplyTextWithInlineButtons(anyLong(), any(), anyString(), any());
+        verify(messenger, never()).sendTextMessage(any(TextSpec.class));
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(messenger).sendReplyText(eq(-100123L), eq(7), captor.capture());
         assertTrue(captor.getValue().contains("待管理员确认"));

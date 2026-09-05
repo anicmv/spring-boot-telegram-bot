@@ -113,9 +113,14 @@ public class BotProperties {
         private boolean autoDeleteEnabled = true;
 
         /**
-         * 画像消息自动清理延迟秒数。
+         * 画像产出后（画像消息 + 命令消息）自动清理延迟秒数。
          */
-        private long autoDeleteDelaySeconds = 300L;
+        private long autoDeleteDelaySeconds = 120L;
+
+        /**
+         * 授权申请按钮消息发出后的自动清理延迟秒数（提醒管理员尽快处理）。
+         */
+        private long approvalRequestDeleteSeconds = 30L;
 
         /**
          * analyzeAll 并行分析的并发用户数（每人一次 LLM 调用）。
