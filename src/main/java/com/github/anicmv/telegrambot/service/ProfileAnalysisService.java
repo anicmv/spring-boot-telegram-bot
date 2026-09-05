@@ -156,7 +156,7 @@ public class ProfileAnalysisService {
             return Result.FAILED;
         }
 
-        saveProfile(userId, oldProfile, output, newCursor, messages.size(), tokensUsed, props.getModel());
+        saveProfile(userId, oldProfile, output, newCursor, messages.size(), tokensUsed, aiChatService.currentModel());
         progress.accept("用户 " + userId + " 分析完成，共 " + messages.size() + " 条新消息");
         return Result.SUCCESS;
     }

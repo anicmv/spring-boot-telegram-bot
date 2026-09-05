@@ -101,11 +101,6 @@ public class BotProperties {
         private Set<Long> allowUserIds = new HashSet<>();
 
         /**
-         * 记录到画像表的模型名。
-         */
-        private String model = "deepseek-chat";
-
-        /**
          * analyzeAll 并行分析的并发用户数（每人一次 LLM 调用）。
          */
         private int analysisConcurrency = 4;

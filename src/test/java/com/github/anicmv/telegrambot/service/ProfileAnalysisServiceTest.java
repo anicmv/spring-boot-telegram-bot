@@ -75,6 +75,7 @@ class ProfileAnalysisServiceTest {
         when(aiChatService.chatWithUsage(anyString(), anyString())).thenReturn(
                 new AiChatService.ChatResult(
                         "{\"summary\":\"爱打游戏\",\"report\":\"白天摸鱼晚上开黑的典型群友。\\n\\n第二段。\"}", 1234L));
+        when(aiChatService.currentModel()).thenReturn("qwen3.8-flash");
 
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
 
@@ -88,7 +89,7 @@ class ProfileAnalysisServiceTest {
         assertEquals(1234L, saved.getTotalTokens());
         assertEquals(6L, saved.getLastAnalyzedMessageId());
         assertEquals(2, saved.getAnalyzedMessageCount());
-        assertEquals("deepseek-chat", saved.getModel());
+        assertEquals("qwen3.8-flash", saved.getModel());
     }
 
     @Test

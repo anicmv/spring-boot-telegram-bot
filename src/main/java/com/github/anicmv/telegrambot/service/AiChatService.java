@@ -100,6 +100,14 @@ public class AiChatService {
     }
 
     /**
+     * 当前对话链路实际使用的模型名（取自 spring.ai.openai 配置），供画像落库等元数据记录，
+     * 换模型时无需再同步维护独立配置项。
+     */
+    public String currentModel() {
+        return chatModel.getOptions().getModel();
+    }
+
+    /**
      * @param content    模型输出内容
      * @param totalTokens 本轮消耗 token 总数（含输入输出，取不到时为 0）
      */
