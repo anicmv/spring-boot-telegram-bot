@@ -2,6 +2,7 @@ package com.github.anicmv.telegrambot.messenger.impl;
 
 import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.event.UpdateHandledEvent;
+import com.github.anicmv.telegrambot.event.UpdateHandledEvent.Kind;
 import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.messenger.TextSpec;
 import com.github.anicmv.telegrambot.model.InlineButton;
@@ -120,7 +121,7 @@ public class TelegramMessenger implements Messenger {
             builder.parseMode(parseMode);
         }
         execute(() -> telegramClient.execute(builder.build()),
-                "photo", chatId, "send photo by url to chat " + chatId);
+                Kind.PHOTO, chatId, "send photo by url to chat " + chatId);
     }
 
     @Override
@@ -135,7 +136,7 @@ public class TelegramMessenger implements Messenger {
                 .caption(caption)
                 .build();
         execute(() -> telegramClient.execute(sendPhoto),
-                "reply_photo", chatId,
+                Kind.REPLY_PHOTO, chatId,
                 "send reply photo by url to chat " + chatId + ", messageId " + replyToMessageId);
     }
 
@@ -146,7 +147,7 @@ public class TelegramMessenger implements Messenger {
         }
         var builder = videoBuilder(chatId, videoPath, caption);
         Message message = execute(() -> telegramClient.execute(builder.build()),
-                "video", chatId, "send video by path to chat " + chatId + ", path=" + videoPath);
+                Kind.VIDEO, chatId, "send video by path to chat " + chatId + ", path=" + videoPath);
         return message != null;
     }
 
@@ -157,7 +158,7 @@ public class TelegramMessenger implements Messenger {
         }
         var builder = videoBuilder(chatId, videoPath, caption).replyToMessageId(replyToMessageId);
         Message message = execute(() -> telegramClient.execute(builder.build()),
-                "reply_video", chatId,
+                Kind.REPLY_VIDEO, chatId,
                 "send reply video by path to chat " + chatId + ", messageId " + replyToMessageId + ", path=" + videoPath);
         return message != null;
     }
@@ -189,7 +190,7 @@ public class TelegramMessenger implements Messenger {
                 .parseMode("HTML")
                 .build();
         Message message = execute(() -> telegramClient.execute(sendDocument),
-                "document", chatId, "send document by path to chat " + chatId + ", path=" + documentPath);
+                Kind.DOCUMENT, chatId, "send document by path to chat " + chatId + ", path=" + documentPath);
         return message != null;
     }
 
@@ -206,7 +207,7 @@ public class TelegramMessenger implements Messenger {
                 .parseMode("HTML")
                 .build();
         Message message = execute(() -> telegramClient.execute(sendDocument),
-                "reply_document", chatId,
+                Kind.REPLY_DOCUMENT, chatId,
                 "send reply document by path to chat " + chatId + ", messageId " + replyToMessageId + ", path=" + documentPath);
         return message != null;
     }
@@ -237,7 +238,7 @@ public class TelegramMessenger implements Messenger {
                 groupBuilder.replyToMessageId(replyToMessageId);
             }
             execute(() -> telegramClient.execute(groupBuilder.build()),
-                    "album", chatId, "send photo album to chat " + chatId);
+                    Kind.ALBUM, chatId, "send photo album to chat " + chatId);
         }
     }
 
@@ -250,7 +251,7 @@ public class TelegramMessenger implements Messenger {
             builder.replyToMessageId(replyToMessageId);
         }
         execute(() -> telegramClient.execute(builder.build()),
-                "photo", chatId, "send photo by file id to chat " + chatId);
+                Kind.PHOTO, chatId, "send photo by file id to chat " + chatId);
     }
 
     // ==================== 上传换取 file_id ====================
@@ -267,7 +268,7 @@ public class TelegramMessenger implements Messenger {
             builder.photo(new InputFile(new File(urlOrPath)));
         }
         Message message = execute(() -> telegramClient.execute(builder.build()),
-                "upload_photo_and_file_id", channelId, "upload photo and echo file id to channel " + channelId);
+                Kind.UPLOAD_PHOTO_AND_FILE_ID, channelId, "upload photo and echo file id to channel " + channelId);
         String fileId = largestPhotoFileId(message);
         if (fileId == null) {
             return null;
@@ -291,7 +292,7 @@ public class TelegramMessenger implements Messenger {
                 .photo(new InputFile(new ByteArrayInputStream(data), "avatar.jpg"))
                 .build();
         Message message = execute(() -> telegramClient.execute(sendPhoto),
-                "upload_photo_bytes", chatId, "upload photo bytes to chat " + chatId);
+                Kind.UPLOAD_PHOTO_BYTES, chatId, "upload photo bytes to chat " + chatId);
         String fileId = largestPhotoFileId(message);
         if (fileId != null) {
             deleteMessageSilently(chatId, message.getMessageId());
@@ -405,7 +406,7 @@ public class TelegramMessenger implements Messenger {
                 .build();
         try {
             telegramClient.execute(deleteMessage);
-            eventPublisher.publishEvent(new UpdateHandledEvent("delete_message", chatId));
+            eventPublisher.publishEvent(new UpdateHandledEvent(Kind.DELETE_MESSAGE, chatId));
         } catch (TelegramApiException ignored) {
             // Ignore on purpose: delete failure should not break business flow.
         }
@@ -424,7 +425,7 @@ public class TelegramMessenger implements Messenger {
             builder.parseMode(parseMode);
         }
         execute(() -> telegramClient.execute(builder.build()),
-                "edit_message_text", chatId, "edit message text chatId=" + chatId + ", messageId=" + messageId);
+                Kind.EDIT_MESSAGE_TEXT, chatId, "edit message text chatId=" + chatId + ", messageId=" + messageId);
     }
 
     @Override
@@ -442,7 +443,7 @@ public class TelegramMessenger implements Messenger {
             builder.replyMarkup(new InlineKeyboardMarkup(List.of()));
         }
         execute(() -> telegramClient.execute(builder.build()),
-                "edit_inline_text", null, "edit inline message text " + inlineMessageId);
+                Kind.EDIT_INLINE_TEXT, null, "edit inline message text " + inlineMessageId);
     }
 
     @Override
@@ -462,7 +463,7 @@ public class TelegramMessenger implements Messenger {
             builder.parseMode(parseMode);
         }
         Serializable result = execute(() -> telegramClient.execute(builder.build()),
-                "edit_inline_text", null, "edit inline message text with noop button " + inlineMessageId);
+                Kind.EDIT_INLINE_TEXT, null, "edit inline message text with noop button " + inlineMessageId);
         return result != null;
     }
 
@@ -484,7 +485,7 @@ public class TelegramMessenger implements Messenger {
                 .replyMarkup(new InlineKeyboardMarkup(List.of()))
                 .build();
         Serializable result = execute(() -> telegramClient.execute(editMessageMedia),
-                "edit_inline_media", null,
+                Kind.EDIT_INLINE_MEDIA, null,
                 "edit inline message media " + inlineMessageId + ", media=" + abbreviateMedia(photoUrl));
         return result != null;
     }
@@ -506,7 +507,7 @@ public class TelegramMessenger implements Messenger {
                 .media(mediaBuilder.build())
                 .build();
         Serializable result = execute(() -> telegramClient.execute(editMessageMedia),
-                "edit_inline_video", null,
+                Kind.EDIT_INLINE_VIDEO, null,
                 "edit inline message video " + inlineMessageId + ", media=" + abbreviateMedia(videoUrl));
         return result != null;
     }
@@ -524,7 +525,7 @@ public class TelegramMessenger implements Messenger {
                 .showAlert(false)
                 .build();
         execute(() -> telegramClient.execute(answerCallbackQuery),
-                "callback", null, "answer callback " + callbackQueryId);
+                Kind.CALLBACK, null, "answer callback " + callbackQueryId);
     }
 
     @Override
@@ -542,7 +543,7 @@ public class TelegramMessenger implements Messenger {
             builder.nextOffset(nextOffset);
         }
         Boolean answered = execute(() -> telegramClient.execute(builder.build()),
-                "inline_query", null, "answer inline query " + inlineQueryId);
+                Kind.INLINE_QUERY, null, "answer inline query " + inlineQueryId);
         if (answered != null) {
             log.info("answer inline queryId={}, results={}, nextOffset={}", inlineQueryId, safeResults.size(), nextOffset);
         }
@@ -561,7 +562,7 @@ public class TelegramMessenger implements Messenger {
     /**
      * 统一执行：成功发布观测事件并返回结果，失败记录错误日志并返回 null。
      */
-    private <T> T execute(ApiCall<T> call, String eventKind, Long chatId, String errorContext) {
+    private <T> T execute(ApiCall<T> call, Kind eventKind, Long chatId, String errorContext) {
         try {
             T result = call.get();
             eventPublisher.publishEvent(new UpdateHandledEvent(eventKind, chatId));

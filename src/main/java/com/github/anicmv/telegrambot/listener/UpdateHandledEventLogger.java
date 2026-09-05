@@ -16,6 +16,6 @@ public class UpdateHandledEventLogger {
 
     @EventListener
     public void onUpdateHandled(UpdateHandledEvent event) {
-        log.debug("Update handled: kind={}, userId={}", event.updateKind(), event.userId());
+        log.debug("Update handled: kind={}, chatId={}", event.updateKind(), event.chatId());
     }
 }

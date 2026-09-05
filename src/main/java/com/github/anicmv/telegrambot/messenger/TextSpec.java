@@ -1,5 +1,6 @@
 package com.github.anicmv.telegrambot.messenger;
 
+import com.github.anicmv.telegrambot.event.UpdateHandledEvent.Kind;
 import com.github.anicmv.telegrambot.model.InlineButton;
 
 import java.util.List;
@@ -61,20 +62,24 @@ public record TextSpec(
     }
 
     /**
-     * 观测事件类型，与原 TelegramMessenger 各方法的字面值保持一致。
+     * 观测事件类型，按消息形状推导，与原各方法的 kind 一致。
      */
-    public String eventKind() {
-        String base = switch (parseMode == null ? "" : parseMode) {
-            case PARSE_HTML -> "html_message";
-            case PARSE_MARKDOWN_V2 -> "markdown_v2_message";
-            default -> "message";
-        };
+    public Kind eventKind() {
         if (hasCallbackButtons()) {
-            base = base + "_with_inline_buttons";
+            return replyToMessageId != null
+                    ? Kind.REPLY_MESSAGE_WITH_INLINE_BUTTONS
+                    : Kind.MESSAGE_WITH_INLINE_BUTTONS;
         }
         if (hasSwitchInline()) {
-            base = base + "_with_switch_inline_button";
+            return replyToMessageId != null
+                    ? Kind.REPLY_MESSAGE_WITH_SWITCH_INLINE_BUTTON
+                    : Kind.MESSAGE_WITH_SWITCH_INLINE_BUTTON;
         }
-        return replyToMessageId != null ? "reply_" + base : base;
+        boolean reply = replyToMessageId != null;
+        return switch (parseMode == null ? "" : parseMode) {
+            case PARSE_HTML -> reply ? Kind.REPLY_HTML_MESSAGE : Kind.HTML_MESSAGE;
+            case PARSE_MARKDOWN_V2 -> reply ? Kind.REPLY_MARKDOWN_V2_MESSAGE : Kind.MARKDOWN_V2_MESSAGE;
+            default -> reply ? Kind.REPLY_MESSAGE : Kind.MESSAGE;
+        };
     }
 }
