@@ -34,6 +34,8 @@ bot:
         - 11111
       auto-delete-enabled: true
       auto-delete-delay-seconds: 30
+      # /ai 对话开启百炼联网搜索（enable_search），画像分析链路不受影响
+      web-search-enabled: true
     profile:
       # 群聊消息记录总开关
       record-enabled: false

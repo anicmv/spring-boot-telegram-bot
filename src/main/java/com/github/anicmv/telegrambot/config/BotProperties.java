@@ -65,6 +65,11 @@ public class BotProperties {
         private Set<Long> blacklistUserIds = new HashSet<>();
         private boolean autoDeleteEnabled = true;
         private long autoDeleteDelaySeconds = 30L;
+
+        /**
+         * /ai 对话是否开启百炼联网搜索（enable_search）；仅影响对话链路，画像分析不受影响。
+         */
+        private boolean webSearchEnabled = true;
     }
 
     @Setter
