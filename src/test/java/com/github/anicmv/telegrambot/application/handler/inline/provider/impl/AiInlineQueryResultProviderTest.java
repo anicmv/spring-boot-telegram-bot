@@ -4,7 +4,7 @@ import com.github.anicmv.telegrambot.service.AiAccessControlService;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.UpdateType;
 import com.github.anicmv.telegrambot.config.BotProperties;
-import com.github.anicmv.telegrambot.handler.inline.provider.impl.DeepSeekInlineQueryResultProvider;
+import com.github.anicmv.telegrambot.handler.inline.provider.impl.AiInlineQueryResultProvider;
 import org.junit.jupiter.api.Test;
 import org.telegram.telegrambots.meta.api.objects.inlinequery.inputmessagecontent.InputTextMessageContent;
 import org.telegram.telegrambots.meta.api.objects.inlinequery.result.InlineQueryResultArticle;
@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class DeepSeekBotInlineQueryResultProviderTest {
+class AiInlineQueryResultProviderTest {
 
     private static AiAccessControlService accessControlService(Long... blockedUserIds) {
         BotProperties properties = new BotProperties();
@@ -26,7 +26,7 @@ class DeepSeekBotInlineQueryResultProviderTest {
 
     @Test
     void shouldSupportAiAndDsPrefix() {
-        DeepSeekInlineQueryResultProvider provider = new DeepSeekInlineQueryResultProvider(accessControlService());
+        AiInlineQueryResultProvider provider = new AiInlineQueryResultProvider(accessControlService());
 
         assertTrue(provider.supports(new BotContext(null, UpdateType.INLINE_QUERY, null, 1L, "ai 你好", null, null, null, null)));
         assertTrue(provider.supports(new BotContext(null, UpdateType.INLINE_QUERY, null, 1L, "ds 你好", null, null, null, null)));
@@ -37,7 +37,7 @@ class DeepSeekBotInlineQueryResultProviderTest {
 
     @Test
     void shouldBuildPlaceholderInlineArticle() {
-        DeepSeekInlineQueryResultProvider provider = new DeepSeekInlineQueryResultProvider(accessControlService());
+        AiInlineQueryResultProvider provider = new AiInlineQueryResultProvider(accessControlService());
 
         var result = provider.createResult(new BotContext(null, UpdateType.INLINE_QUERY, null, 1L, "ai 你好", null, null, null, null));
 
@@ -50,7 +50,7 @@ class DeepSeekBotInlineQueryResultProviderTest {
 
     @Test
     void shouldNotSupportBlockedUser() {
-        DeepSeekInlineQueryResultProvider provider = new DeepSeekInlineQueryResultProvider(accessControlService(2L));
+        AiInlineQueryResultProvider provider = new AiInlineQueryResultProvider(accessControlService(2L));
 
         assertFalse(provider.supports(new BotContext(null, UpdateType.INLINE_QUERY, null, 2L, "ai 你好", null, null, null, null)));
     }

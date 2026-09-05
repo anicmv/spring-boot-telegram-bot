@@ -36,18 +36,18 @@ public class ProfileAnalysisService {
 
     private final ChatMessageRepository chatMessageRepository;
     private final UserProfileRepository userProfileRepository;
-    private final DeepSeekChatService deepSeekChatService;
+    private final AiChatService aiChatService;
     private final BotProperties botProperties;
     private final ObjectMapper objectMapper;
 
     public ProfileAnalysisService(ChatMessageRepository chatMessageRepository,
                                   UserProfileRepository userProfileRepository,
-                                  DeepSeekChatService deepSeekChatService,
+                                  AiChatService aiChatService,
                                   BotProperties botProperties,
                                   ObjectMapper objectMapper) {
         this.chatMessageRepository = chatMessageRepository;
         this.userProfileRepository = userProfileRepository;
-        this.deepSeekChatService = deepSeekChatService;
+        this.aiChatService = aiChatService;
         this.botProperties = botProperties;
         this.objectMapper = objectMapper;
     }
@@ -137,12 +137,12 @@ public class ProfileAnalysisService {
         }
 
         String userPrompt = buildUserPrompt(oldProfile, messages);
-        DeepSeekChatService.ChatResult chatResult = deepSeekChatService.chatWithUsage(props.getAnalysisPrompt(), userPrompt);
+        AiChatService.ChatResult chatResult = aiChatService.chatWithUsage(props.getAnalysisPrompt(), userPrompt);
         long tokensUsed = chatResult.totalTokens() == null ? 0L : chatResult.totalTokens();
         ProfileModelOutput output = parse(chatResult.content());
         if (output == null) {
             String retryPrompt = userPrompt + "\n\n注意：你上一次的输出格式不合法。请只输出一个 JSON 对象，不要输出任何解释或代码块标记。";
-            chatResult = deepSeekChatService.chatWithUsage(props.getAnalysisPrompt(), retryPrompt);
+            chatResult = aiChatService.chatWithUsage(props.getAnalysisPrompt(), retryPrompt);
             tokensUsed += chatResult.totalTokens() == null ? 0L : chatResult.totalTokens();
             output = parse(chatResult.content());
         }

@@ -2,7 +2,7 @@ package com.github.anicmv.telegrambot.handler.command.impl;
 
 import com.github.anicmv.telegrambot.utils.BotUtil;
 import com.github.anicmv.telegrambot.service.AiAccessControlService;
-import com.github.anicmv.telegrambot.service.DeepSeekChatService;
+import com.github.anicmv.telegrambot.service.AiChatService;
 import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.UpdateType;
@@ -59,14 +59,14 @@ class AiCommandHandlerTest {
 
     private static AiCommandHandler handler(Messenger messenger,
                                             AiAccessControlService accessControlService,
-                                            DeepSeekChatService deepSeekChatService,
+                                            AiChatService aiChatService,
                                             BotProperties properties,
                                             TaskScheduler taskScheduler) {
         TaskExecutor directExecutor = Runnable::run;
         return new AiCommandHandler(
                 messenger,
                 accessControlService,
-                deepSeekChatService,
+                aiChatService,
                 properties,
                 taskScheduler,
                 directExecutor
@@ -74,20 +74,20 @@ class AiCommandHandlerTest {
     }
 
     @Test
-    void shouldReplyWithDeepSeekAnswer() {
+    void shouldReplyWithAiAnswer() {
         Messenger messenger = mock(Messenger.class);
-        DeepSeekChatService deepSeekChatService = mock(DeepSeekChatService.class);
+        AiChatService aiChatService = mock(AiChatService.class);
         TaskScheduler taskScheduler = mock(TaskScheduler.class);
         AiCommandHandler handler = handler(
                 messenger,
                 accessControlService(),
-                deepSeekChatService,
+                aiChatService,
                 botProperties(true, 30),
                 taskScheduler
         );
         Message message = mock(Message.class);
         when(message.getMessageId()).thenReturn(99);
-        when(deepSeekChatService.chat("帮我写周报")).thenReturn("这是总结");
+        when(aiChatService.chat("帮我写周报")).thenReturn("这是总结");
         when(messenger.sendReplyTextAndReturnMessageId(123L, 99, "🤖 正在思考...")).thenReturn(199);
         BotContext context = new BotContext(null, UpdateType.MESSAGE, 123L, 1L, "/ai 帮我写周报", message, null, null, null);
 
@@ -98,14 +98,14 @@ class AiCommandHandlerTest {
     }
 
     @Test
-    void shouldAskDeepSeekWithReplyMessageWhenCommandHasNoArgs() {
+    void shouldAskModelWithReplyMessageWhenCommandHasNoArgs() {
         Messenger messenger = mock(Messenger.class);
-        DeepSeekChatService deepSeekChatService = mock(DeepSeekChatService.class);
+        AiChatService aiChatService = mock(AiChatService.class);
         TaskScheduler taskScheduler = mock(TaskScheduler.class);
         AiCommandHandler handler = handler(
                 messenger,
                 accessControlService(),
-                deepSeekChatService,
+                aiChatService,
                 botProperties(false, 30),
                 taskScheduler
         );
@@ -114,7 +114,7 @@ class AiCommandHandlerTest {
         when(message.getMessageId()).thenReturn(100);
         when(replied.getText()).thenReturn("帮我解释这句话");
         when(message.getReplyToMessage()).thenReturn(replied);
-        when(deepSeekChatService.chat("帮我解释这句话")).thenReturn("这是解释");
+        when(aiChatService.chat("帮我解释这句话")).thenReturn("这是解释");
         when(messenger.sendReplyTextAndReturnMessageId(123L, 100, "🤖 正在思考...")).thenReturn(200);
         BotContext context = new BotContext(null, UpdateType.MESSAGE, 123L, 1L, "/ai", message, null, null, null);
 
@@ -127,18 +127,18 @@ class AiCommandHandlerTest {
     @Test
     void shouldFallbackWhenCommandHasNoArgsAndNoReplyMessage() {
         Messenger messenger = mock(Messenger.class);
-        DeepSeekChatService deepSeekChatService = mock(DeepSeekChatService.class);
+        AiChatService aiChatService = mock(AiChatService.class);
         TaskScheduler taskScheduler = mock(TaskScheduler.class);
         AiCommandHandler handler = handler(
                 messenger,
                 accessControlService(),
-                deepSeekChatService,
+                aiChatService,
                 botProperties(false, 30),
                 taskScheduler
         );
         Message message = mock(Message.class);
         when(message.getMessageId()).thenReturn(101);
-        when(deepSeekChatService.chat("")).thenReturn("请输入问题，例如：/ai 帮我总结今天的工作。");
+        when(aiChatService.chat("")).thenReturn("请输入问题，例如：/ai 帮我总结今天的工作。");
         when(messenger.sendReplyTextAndReturnMessageId(123L, 101, "🤖 正在思考...")).thenReturn(201);
         BotContext context = new BotContext(null, UpdateType.MESSAGE, 123L, 1L, "/ai", message, null, null, null);
 
@@ -151,12 +151,12 @@ class AiCommandHandlerTest {
     @Test
     void shouldRejectBlockedUser() {
         Messenger messenger = mock(Messenger.class);
-        DeepSeekChatService deepSeekChatService = mock(DeepSeekChatService.class);
+        AiChatService aiChatService = mock(AiChatService.class);
         TaskScheduler taskScheduler = mock(TaskScheduler.class);
         AiCommandHandler handler = handler(
                 messenger,
                 accessControlService(2L),
-                deepSeekChatService,
+                aiChatService,
                 botProperties(false, 30),
                 taskScheduler
         );
@@ -176,7 +176,7 @@ class AiCommandHandlerTest {
                 102,
                 ">帮我写周报\n\n>你没有权限使用 AI 功能。"
         );
-        verify(deepSeekChatService, never()).chat("帮我写周报");
+        verify(aiChatService, never()).chat("帮我写周报");
     }
 
     @Test

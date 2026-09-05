@@ -27,6 +27,6 @@ public class NoopCallbackActionHandler implements CallbackActionHandler {
         if (context.callbackQuery() == null) {
             return;
         }
-        messenger.answerCallback(context.callbackQuery().getId(), "DeepSeek 正在生成，请稍候");
+        messenger.answerCallback(context.callbackQuery().getId(), "AI 正在生成，请稍候");
     }
 }

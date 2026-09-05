@@ -4,7 +4,7 @@ import com.github.anicmv.telegrambot.annotation.BotInline;
 import com.github.anicmv.telegrambot.handler.inline.chosen.ChosenInlineQueryResultHandler;
 import com.github.anicmv.telegrambot.service.AiAccessControlService;
 import com.github.anicmv.telegrambot.handler.command.impl.AiCommandHandler;
-import com.github.anicmv.telegrambot.service.DeepSeekChatService;
+import com.github.anicmv.telegrambot.service.AiChatService;
 import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.model.BotContext;
@@ -16,25 +16,25 @@ import org.springframework.stereotype.Component;
 /**
  * @author anicmv
  * @date 2026/5/1 15:26
- * @description DeepSeek 已选内联结果处理器，异步将占位消息替换为模型回答。
+ * @description AI 已选内联结果处理器，异步将占位消息替换为模型回答。
  */
-@BotInline(BotConstant.INLINE_ID_DEEPSEEK)
+@BotInline(BotConstant.INLINE_ID_AI)
 @Log4j2
 @Component
-public class DeepSeekChosenInlineQueryHandler implements ChosenInlineQueryResultHandler {
+public class AiChosenInlineQueryHandler implements ChosenInlineQueryResultHandler {
 
     private final Messenger messenger;
     private final AiAccessControlService aiAccessControlService;
-    private final DeepSeekChatService deepSeekChatService;
+    private final AiChatService aiChatService;
     private final TaskExecutor botBackgroundExecutor;
 
-    public DeepSeekChosenInlineQueryHandler(Messenger messenger,
+    public AiChosenInlineQueryHandler(Messenger messenger,
                                             AiAccessControlService aiAccessControlService,
-                                            DeepSeekChatService deepSeekChatService,
+                                            AiChatService aiChatService,
                                             @Qualifier("botBackgroundExecutor") TaskExecutor botBackgroundExecutor) {
         this.messenger = messenger;
         this.aiAccessControlService = aiAccessControlService;
-        this.deepSeekChatService = deepSeekChatService;
+        this.aiChatService = aiChatService;
         this.botBackgroundExecutor = botBackgroundExecutor;
     }
 
@@ -59,9 +59,9 @@ public class DeepSeekChosenInlineQueryHandler implements ChosenInlineQueryResult
         }
         String prompt = extractPrompt(context.text());
         try {
-            String answer = deepSeekChatService.chat(prompt);
+            String answer = aiChatService.chat(prompt);
             if (answer == null || answer.isBlank()) {
-                answer = "DeepSeek 没有返回可用内容。";
+                answer = "模型没有返回可用内容。";
             }
             messenger.editInlineMessageText(
                     inlineMessageId,
@@ -70,10 +70,10 @@ public class DeepSeekChosenInlineQueryHandler implements ChosenInlineQueryResult
                     true
             );
         } catch (Exception e) {
-            log.error("DeepSeek chosen inline processing failed. inlineMessageId={}", inlineMessageId, e);
+            log.error("AI chosen inline processing failed. inlineMessageId={}", inlineMessageId, e);
             messenger.editInlineMessageText(
                     inlineMessageId,
-                    AiCommandHandler.formatMarkdownV2Response(prompt, "DeepSeek 调用失败，请稍后重试。"),
+                    AiCommandHandler.formatMarkdownV2Response(prompt, "模型调用失败，请稍后重试。"),
                     "MarkdownV2",
                     true
             );

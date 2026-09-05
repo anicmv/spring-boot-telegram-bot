@@ -56,7 +56,7 @@ public final class BotConstant {
     public static final String INLINE_ID_DU = "N_12";
     public static final String INLINE_ID_MATCHMAKER = "N_13";
     public static final String INLINE_ID_DB = "N_3";
-    public static final String INLINE_ID_DEEPSEEK = "N_14";
+    public static final String INLINE_ID_AI = "N_14";
     public static final String INLINE_ID_DOUYIN = "N_15";
     public static final String INLINE_ID_ARTICLE = "N_99";
 

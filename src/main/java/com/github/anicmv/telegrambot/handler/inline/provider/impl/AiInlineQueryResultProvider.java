@@ -18,15 +18,15 @@ import java.util.List;
 /**
  * @author anicmv
  * @date 2026/5/1 15:18
- * @description DeepSeek inline 结果提供器。
+ * @description AI 内联对话结果提供器。
  */
-@BotInline(BotConstant.INLINE_ID_DEEPSEEK)
+@BotInline(BotConstant.INLINE_ID_AI)
 @Component
-public class DeepSeekInlineQueryResultProvider implements InlineQueryResultProvider {
+public class AiInlineQueryResultProvider implements InlineQueryResultProvider {
 
     private final AiAccessControlService aiAccessControlService;
 
-    public DeepSeekInlineQueryResultProvider(AiAccessControlService aiAccessControlService) {
+    public AiInlineQueryResultProvider(AiAccessControlService aiAccessControlService) {
         this.aiAccessControlService = aiAccessControlService;
     }
 
@@ -54,7 +54,7 @@ public class DeepSeekInlineQueryResultProvider implements InlineQueryResultProvi
         String prompt = extractPrompt(context == null ? null : context.text());
         return InlineQueryResultArticle.builder()
                 .id(sortId())
-                .title("DeepSeek")
+                .title("AI 对话")
                 .description(limit(prompt.isBlank() ? "发送后异步生成回答" : prompt, 80))
                 .inputMessageContent(InputTextMessageContent.builder().messageText(prompt).build())
                 .replyMarkup(loadingMarkup())
@@ -63,7 +63,7 @@ public class DeepSeekInlineQueryResultProvider implements InlineQueryResultProvi
 
     private InlineKeyboardMarkup loadingMarkup() {
         InlineKeyboardButton button = InlineKeyboardButton.builder()
-                .text("DeepSeek 正在处理...")
+                .text("AI 正在处理...")
                 .callbackData(BotConstant.CALLBACK_ACTION_NOOP)
                 .build();
         return new InlineKeyboardMarkup(List.of(new InlineKeyboardRow(button)));

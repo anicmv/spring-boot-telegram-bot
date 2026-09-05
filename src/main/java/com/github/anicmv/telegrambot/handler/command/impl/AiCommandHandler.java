@@ -3,7 +3,7 @@ package com.github.anicmv.telegrambot.handler.command.impl;
 import com.github.anicmv.telegrambot.annotation.BotCommand;
 import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.service.AiAccessControlService;
-import com.github.anicmv.telegrambot.service.DeepSeekChatService;
+import com.github.anicmv.telegrambot.service.AiChatService;
 import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.utils.BotUtil;
 import com.github.anicmv.telegrambot.messenger.Messenger;
@@ -36,20 +36,20 @@ public class AiCommandHandler implements BotCommandHandler {
 
     private final Messenger messenger;
     private final AiAccessControlService aiAccessControlService;
-    private final DeepSeekChatService deepSeekChatService;
+    private final AiChatService aiChatService;
     private final BotProperties botProperties;
     private final TaskScheduler botScheduler;
     private final TaskExecutor botBackgroundExecutor;
 
     public AiCommandHandler(Messenger messenger,
                             AiAccessControlService aiAccessControlService,
-                            DeepSeekChatService deepSeekChatService,
+                            AiChatService aiChatService,
                             BotProperties botProperties,
                             @Qualifier("botScheduler") TaskScheduler botScheduler,
                             @Qualifier("botBackgroundExecutor") TaskExecutor botBackgroundExecutor) {
         this.messenger = messenger;
         this.aiAccessControlService = aiAccessControlService;
-        this.deepSeekChatService = deepSeekChatService;
+        this.aiChatService = aiChatService;
         this.botProperties = botProperties;
         this.botScheduler = botScheduler;
         this.botBackgroundExecutor = botBackgroundExecutor;
@@ -74,13 +74,13 @@ public class AiCommandHandler implements BotCommandHandler {
     private void answerInBackground(BotContext context, String prompt, Integer progressMessageId) {
         String answer;
         try {
-            answer = deepSeekChatService.chat(prompt);
+            answer = aiChatService.chat(prompt);
         } catch (Exception e) {
-            log.error("DeepSeek chat failed. chatId={}", context.chatId(), e);
-            answer = "DeepSeek 调用失败，请检查 `spring.ai.openai.api-key`、`spring.ai.openai.base-url`、模型名和网络。";
+            log.error("AI chat failed. chatId={}", context.chatId(), e);
+            answer = "模型调用失败，请检查 `spring.ai.openai.api-key`、`spring.ai.openai.base-url`、模型名和网络。";
         }
         if (answer == null || answer.isBlank()) {
-            answer = "DeepSeek 没有返回可用内容。";
+            answer = "模型没有返回可用内容。";
         }
         deliverAnswer(context, progressMessageId, formatMarkdownV2Response(prompt, answer));
     }

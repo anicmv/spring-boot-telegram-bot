@@ -41,7 +41,7 @@ class ProfileAnalysisServiceTest {
     private UserProfileRepository userProfileRepository;
 
     @Mock
-    private DeepSeekChatService deepSeekChatService;
+    private AiChatService aiChatService;
 
     private BotProperties properties;
     private ProfileAnalysisService service;
@@ -52,7 +52,7 @@ class ProfileAnalysisServiceTest {
         properties = new BotProperties();
         properties.getProfile().getRecordGroupIds().add(-100L);
         service = new ProfileAnalysisService(chatMessageRepository, userProfileRepository,
-                deepSeekChatService, properties, new ObjectMapper());
+                aiChatService, properties, new ObjectMapper());
         progressLogs = new ArrayList<>();
     }
 
@@ -63,7 +63,7 @@ class ProfileAnalysisServiceTest {
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
 
         assertEquals(new ProfileAnalysisStats(0, 0, 0, 0), stats);
-        verifyNoInteractions(chatMessageRepository, deepSeekChatService, userProfileRepository);
+        verifyNoInteractions(chatMessageRepository, aiChatService, userProfileRepository);
     }
 
     @Test
@@ -72,8 +72,8 @@ class ProfileAnalysisServiceTest {
         when(userProfileRepository.findByTelegramId(1L)).thenReturn(Optional.empty());
         when(chatMessageRepository.findNewerThanByUser(any(), eq(1L), eq(0L), anyInt()))
                 .thenReturn(List.of(message(5L, "我喜欢打游戏"), message(6L, "今晚开黑吗")));
-        when(deepSeekChatService.chatWithUsage(anyString(), anyString())).thenReturn(
-                new DeepSeekChatService.ChatResult(
+        when(aiChatService.chatWithUsage(anyString(), anyString())).thenReturn(
+                new AiChatService.ChatResult(
                         "{\"summary\":\"爱打游戏\",\"report\":\"白天摸鱼晚上开黑的典型群友。\\n\\n第二段。\"}", 1234L));
 
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
@@ -97,13 +97,13 @@ class ProfileAnalysisServiceTest {
         when(userProfileRepository.findByTelegramId(1L)).thenReturn(Optional.empty());
         when(chatMessageRepository.findNewerThanByUser(any(), eq(1L), eq(0L), anyInt()))
                 .thenReturn(List.of(message(7L, "随便聊聊")));
-        when(deepSeekChatService.chatWithUsage(anyString(), anyString())).thenReturn(
-                new DeepSeekChatService.ChatResult("这不是 JSON", 5L));
+        when(aiChatService.chatWithUsage(anyString(), anyString())).thenReturn(
+                new AiChatService.ChatResult("这不是 JSON", 5L));
 
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
 
         assertEquals(new ProfileAnalysisStats(1, 0, 1, 0), stats);
-        verify(deepSeekChatService, times(2)).chatWithUsage(anyString(), anyString());
+        verify(aiChatService, times(2)).chatWithUsage(anyString(), anyString());
         ArgumentCaptor<UserProfileEntity> captor = ArgumentCaptor.forClass(UserProfileEntity.class);
         verify(userProfileRepository).upsert(captor.capture());
         UserProfileEntity saved = captor.getValue();
@@ -121,7 +121,7 @@ class ProfileAnalysisServiceTest {
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
 
         assertEquals(new ProfileAnalysisStats(1, 0, 0, 1), stats);
-        verify(deepSeekChatService, never()).chatWithUsage(anyString(), anyString());
+        verify(aiChatService, never()).chatWithUsage(anyString(), anyString());
         verify(userProfileRepository, never()).upsert(any());
     }
 
@@ -136,8 +136,8 @@ class ProfileAnalysisServiceTest {
         when(userProfileRepository.findByTelegramId(1L)).thenReturn(Optional.of(oldProfile));
         when(chatMessageRepository.findNewerThanByUser(any(), eq(1L), eq(100L), anyInt()))
                 .thenReturn(List.of(message(101L, "新消息")));
-        when(deepSeekChatService.chatWithUsage(anyString(), anyString())).thenReturn(
-                new DeepSeekChatService.ChatResult("{\"summary\":\"更新后的画像\",\"report\":\"新的正文\"}", 8L));
+        when(aiChatService.chatWithUsage(anyString(), anyString())).thenReturn(
+                new AiChatService.ChatResult("{\"summary\":\"更新后的画像\",\"report\":\"新的正文\"}", 8L));
 
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
 
@@ -158,9 +158,9 @@ class ProfileAnalysisServiceTest {
         when(userProfileRepository.findByTelegramId(any())).thenReturn(Optional.empty());
         when(chatMessageRepository.findNewerThanByUser(any(), any(), eq(0L), anyInt()))
                 .thenReturn(List.of(message(5L, "消息内容")));
-        when(deepSeekChatService.chatWithUsage(anyString(), anyString())).thenAnswer(invocation -> {
+        when(aiChatService.chatWithUsage(anyString(), anyString())).thenAnswer(invocation -> {
             Thread.sleep(150);
-            return new DeepSeekChatService.ChatResult("{\"summary\":\"s\",\"report\":\"r\"}", 1L);
+            return new AiChatService.ChatResult("{\"summary\":\"s\",\"report\":\"r\"}", 1L);
         });
 
         long startNanos = System.nanoTime();

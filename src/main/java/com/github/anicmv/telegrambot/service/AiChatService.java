@@ -8,15 +8,15 @@ import org.springframework.stereotype.Service;
 /**
  * @author anicmv
  * @date 2026/5/1 17:10
- * @description DeepSeek 对话服务，封装 Spring AI 调用。
+ * @description AI 对话服务，封装 Spring AI 调用，模型由 spring.ai.openai 配置决定。
  */
 @Service
-public class DeepSeekChatService {
+public class AiChatService {
 
     private final ChatClient chatClient;
     private final BotProperties botProperties;
 
-    public DeepSeekChatService(ChatClient.Builder chatClientBuilder, BotProperties botProperties) {
+    public AiChatService(ChatClient.Builder chatClientBuilder, BotProperties botProperties) {
         this.chatClient = chatClientBuilder.build();
         this.botProperties = botProperties;
     }
@@ -31,7 +31,7 @@ public class DeepSeekChatService {
                 .call()
                 .content();
         if (content == null || content.isBlank()) {
-            return "DeepSeek 没有返回可用内容。";
+            return "模型没有返回可用内容。";
         }
         return content.trim();
     }

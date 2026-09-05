@@ -1,12 +1,12 @@
 package com.github.anicmv.telegrambot.application.handler.inline;
 
 import com.github.anicmv.telegrambot.service.AiAccessControlService;
-import com.github.anicmv.telegrambot.service.DeepSeekChatService;
+import com.github.anicmv.telegrambot.service.AiChatService;
 import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.UpdateType;
 import com.github.anicmv.telegrambot.config.BotProperties;
-import com.github.anicmv.telegrambot.handler.inline.chosen.impl.DeepSeekChosenInlineQueryHandler;
+import com.github.anicmv.telegrambot.handler.inline.chosen.impl.AiChosenInlineQueryHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.task.TaskExecutor;
 import org.telegram.telegrambots.meta.api.objects.inlinequery.ChosenInlineQuery;
@@ -17,7 +17,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class DeepSeekChosenBotInlineQueryHandlerTest {
+class AiChosenInlineQueryHandlerTest {
 
     private static AiAccessControlService accessControlService(Long... blockedUserIds) {
         BotProperties properties = new BotProperties();
@@ -30,18 +30,18 @@ class DeepSeekChosenBotInlineQueryHandlerTest {
     @Test
     void shouldEditInlineMessageWithMarkdownV2Answer() {
         Messenger messenger = mock(Messenger.class);
-        DeepSeekChatService deepSeekChatService = mock(DeepSeekChatService.class);
+        AiChatService aiChatService = mock(AiChatService.class);
         TaskExecutor taskExecutor = Runnable::run;
-        DeepSeekChosenInlineQueryHandler handler = new DeepSeekChosenInlineQueryHandler(
+        AiChosenInlineQueryHandler handler = new AiChosenInlineQueryHandler(
                 messenger,
                 accessControlService(),
-                deepSeekChatService,
+                aiChatService,
                 taskExecutor
         );
         ChosenInlineQuery chosenInlineQuery = mock(ChosenInlineQuery.class);
         when(chosenInlineQuery.getResultId()).thenReturn("N_14");
         when(chosenInlineQuery.getInlineMessageId()).thenReturn("inline-msg-1");
-        when(deepSeekChatService.chat("你好")).thenReturn("你好 *世界*");
+        when(aiChatService.chat("你好")).thenReturn("你好 *世界*");
         BotContext context = new BotContext(null, UpdateType.CHOSEN_INLINE_QUERY, null, 1L, "ai 你好", null, null, null, chosenInlineQuery);
 
         handler.execute(context);
@@ -57,18 +57,18 @@ class DeepSeekChosenBotInlineQueryHandlerTest {
     @Test
     void shouldEscapeTelegramMarkdownV2SpecialCharacters() {
         Messenger messenger = mock(Messenger.class);
-        DeepSeekChatService deepSeekChatService = mock(DeepSeekChatService.class);
+        AiChatService aiChatService = mock(AiChatService.class);
         TaskExecutor taskExecutor = Runnable::run;
-        DeepSeekChosenInlineQueryHandler handler = new DeepSeekChosenInlineQueryHandler(
+        AiChosenInlineQueryHandler handler = new AiChosenInlineQueryHandler(
                 messenger,
                 accessControlService(),
-                deepSeekChatService,
+                aiChatService,
                 taskExecutor
         );
         ChosenInlineQuery chosenInlineQuery = mock(ChosenInlineQuery.class);
         when(chosenInlineQuery.getResultId()).thenReturn("N_14");
         when(chosenInlineQuery.getInlineMessageId()).thenReturn("inline-msg-2");
-        when(deepSeekChatService.chat("苏州自助推荐哪家")).thenReturn("1. **金钱豹国际美食百汇**（多家分店）");
+        when(aiChatService.chat("苏州自助推荐哪家")).thenReturn("1. **金钱豹国际美食百汇**（多家分店）");
         BotContext context = new BotContext(null, UpdateType.CHOSEN_INLINE_QUERY, null, 1L, "ai 苏州自助推荐哪家", null, null, null, chosenInlineQuery);
 
         handler.execute(context);
@@ -84,18 +84,18 @@ class DeepSeekChosenBotInlineQueryHandlerTest {
     @Test
     void shouldStripCommonMarkdownMarkersBeforeEscaping() {
         Messenger messenger = mock(Messenger.class);
-        DeepSeekChatService deepSeekChatService = mock(DeepSeekChatService.class);
+        AiChatService aiChatService = mock(AiChatService.class);
         TaskExecutor taskExecutor = Runnable::run;
-        DeepSeekChosenInlineQueryHandler handler = new DeepSeekChosenInlineQueryHandler(
+        AiChosenInlineQueryHandler handler = new AiChosenInlineQueryHandler(
                 messenger,
                 accessControlService(),
-                deepSeekChatService,
+                aiChatService,
                 taskExecutor
         );
         ChosenInlineQuery chosenInlineQuery = mock(ChosenInlineQuery.class);
         when(chosenInlineQuery.getResultId()).thenReturn("N_14");
         when(chosenInlineQuery.getInlineMessageId()).thenReturn("inline-msg-3");
-        when(deepSeekChatService.chat("苏州自助推荐")).thenReturn("1. **香格里拉大酒店·咖啡亭**（高新区）—— 海鲜、刺身品种丰富");
+        when(aiChatService.chat("苏州自助推荐")).thenReturn("1. **香格里拉大酒店·咖啡亭**（高新区）—— 海鲜、刺身品种丰富");
 
         BotContext context = new BotContext(null, UpdateType.CHOSEN_INLINE_QUERY, null, 1L, "ai 苏州自助推荐", null, null, null, chosenInlineQuery);
 
@@ -110,14 +110,14 @@ class DeepSeekChosenBotInlineQueryHandlerTest {
     }
 
     @Test
-    void shouldRejectBlockedUserBeforeCallingDeepSeek() {
+    void shouldRejectBlockedUserBeforeCallingAi() {
         Messenger messenger = mock(Messenger.class);
-        DeepSeekChatService deepSeekChatService = mock(DeepSeekChatService.class);
+        AiChatService aiChatService = mock(AiChatService.class);
         TaskExecutor taskExecutor = Runnable::run;
-        DeepSeekChosenInlineQueryHandler handler = new DeepSeekChosenInlineQueryHandler(
+        AiChosenInlineQueryHandler handler = new AiChosenInlineQueryHandler(
                 messenger,
                 accessControlService(2L),
-                deepSeekChatService,
+                aiChatService,
                 taskExecutor
         );
         ChosenInlineQuery chosenInlineQuery = mock(ChosenInlineQuery.class);
@@ -133,6 +133,6 @@ class DeepSeekChosenBotInlineQueryHandlerTest {
                 eq("MarkdownV2"),
                 eq(true)
         );
-        verify(deepSeekChatService, never()).chat("你好");
+        verify(aiChatService, never()).chat("你好");
     }
 }
