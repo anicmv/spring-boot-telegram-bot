@@ -27,71 +27,45 @@ public record BotContext(
 
     public static BotContext from(Update update) {
         if (update == null) {
-            return new BotContext(null, UpdateType.UNKNOWN, null, null, null, null, null, null, null);
+            return unknown(null);
         }
         if (update.hasMessage()) {
             Message message = update.getMessage();
-            Chat chat = message.getChat();
-            User from = message.getFrom();
-            return new BotContext(
-                    update,
-                    UpdateType.MESSAGE,
-                    chat != null ? chat.getId() : null,
-                    from != null ? from.getId() : null,
-                    message.getText(),
-                    message,
-                    null,
-                    null,
-                    null
-            );
+            return new BotContext(update, UpdateType.MESSAGE,
+                    chatId(message.getChat()), userId(message.getFrom()),
+                    message.getText(), message, null, null, null);
         }
         if (update.hasCallbackQuery()) {
             CallbackQuery callbackQuery = update.getCallbackQuery();
             var message = callbackQuery.getMessage();
-            Chat chat = message != null ? message.getChat() : null;
-            User from = callbackQuery.getFrom();
-            return new BotContext(
-                    update,
-                    UpdateType.CALLBACK_QUERY,
-                    chat != null ? chat.getId() : null,
-                    from != null ? from.getId() : null,
-                    callbackQuery.getData(),
-                    null,
-                    callbackQuery,
-                    null,
-                    null
-            );
+            return new BotContext(update, UpdateType.CALLBACK_QUERY,
+                    chatId(message != null ? message.getChat() : null), userId(callbackQuery.getFrom()),
+                    callbackQuery.getData(), null, callbackQuery, null, null);
         }
         if (update.hasInlineQuery()) {
             InlineQuery inlineQuery = update.getInlineQuery();
-            User from = inlineQuery.getFrom();
-            return new BotContext(
-                    update,
-                    UpdateType.INLINE_QUERY,
-                    null,
-                    from.getId(),
-                    inlineQuery.getQuery(),
-                    null,
-                    null,
-                    inlineQuery,
-                    null
-            );
+            return new BotContext(update, UpdateType.INLINE_QUERY,
+                    null, userId(inlineQuery.getFrom()),
+                    inlineQuery.getQuery(), null, null, inlineQuery, null);
         }
         if (update.hasChosenInlineQuery()) {
             ChosenInlineQuery chosenInlineQuery = update.getChosenInlineQuery();
-            User from = chosenInlineQuery.getFrom();
-            return new BotContext(
-                    update,
-                    UpdateType.CHOSEN_INLINE_QUERY,
-                    null,
-                    from.getId(),
-                    chosenInlineQuery.getQuery(),
-                    null,
-                    null,
-                    null,
-                    chosenInlineQuery
-            );
+            return new BotContext(update, UpdateType.CHOSEN_INLINE_QUERY,
+                    null, userId(chosenInlineQuery.getFrom()),
+                    chosenInlineQuery.getQuery(), null, null, null, chosenInlineQuery);
         }
+        return unknown(update);
+    }
+
+    private static BotContext unknown(Update update) {
         return new BotContext(update, UpdateType.UNKNOWN, null, null, null, null, null, null, null);
+    }
+
+    private static Long chatId(Chat chat) {
+        return chat == null ? null : chat.getId();
+    }
+
+    private static Long userId(User from) {
+        return from == null ? null : from.getId();
     }
 }
