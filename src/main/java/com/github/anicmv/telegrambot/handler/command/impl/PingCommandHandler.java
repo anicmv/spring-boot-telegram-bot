@@ -4,6 +4,7 @@ import com.github.anicmv.telegrambot.annotation.BotCommand;
 import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.messenger.Messenger;
+import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import org.springframework.stereotype.Component;
 
@@ -24,16 +25,10 @@ public class PingCommandHandler implements BotCommandHandler {
 
     @Override
     public void execute(BotContext context) {
-        if (context.message() != null && context.message().getMessageId() != null) {
-            Integer replyMessageId = messenger.sendReplyTextAndReturnMessageId(
-                    context.chatId(),
-                    context.message().getMessageId(),
-                    "\uD83C\uDFD3"
-            );
-            messenger.deleteMessageSilently(context.chatId(), context.message().getMessageId());
-            messenger.deleteMessageSilently(context.chatId(), replyMessageId);
-            return;
-        }
-        messenger.sendText(context.chatId(), "\uD83C\uDFD3");
+        Replier replier = Replier.of(context, messenger);
+        Integer commandMessageId = context.message() == null ? null : context.message().getMessageId();
+        Integer replyMessageId = replier.textAndReturnId("\uD83C\uDFD3");
+        replier.deleteSilently(commandMessageId);
+        replier.deleteSilently(replyMessageId);
     }
 }

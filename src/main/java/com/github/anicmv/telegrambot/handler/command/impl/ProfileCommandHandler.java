@@ -6,6 +6,7 @@ import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.entity.UserProfileEntity;
 import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.messenger.Messenger;
+import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.BotUserProfile;
 import com.github.anicmv.telegrambot.repository.BotUserRepository;
@@ -215,11 +216,7 @@ public class ProfileCommandHandler implements BotCommandHandler {
     }
 
     private Integer sendLoadingMessage(BotContext context) {
-        if (context.message() != null && context.message().getMessageId() != null) {
-            return messenger.sendReplyTextAndReturnMessageId(context.chatId(), context.message().getMessageId(), LOADING_TEXT);
-        }
-        messenger.sendText(context.chatId(), LOADING_TEXT);
-        return null;
+        return Replier.of(context, messenger).textAndReturnId(LOADING_TEXT);
     }
 
     private void deliver(BotContext context, Integer progressMessageId, String text) {
@@ -231,11 +228,7 @@ public class ProfileCommandHandler implements BotCommandHandler {
     }
 
     private void replyPlain(BotContext context, String text) {
-        if (context.message() != null && context.message().getMessageId() != null) {
-            messenger.sendReplyText(context.chatId(), context.message().getMessageId(), text);
-            return;
-        }
-        messenger.sendText(context.chatId(), text);
+        Replier.of(context, messenger).text(text);
     }
 
     private static boolean isNotBlank(String value) {

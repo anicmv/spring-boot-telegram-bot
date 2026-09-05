@@ -2,6 +2,7 @@ package com.github.anicmv.telegrambot.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.anicmv.telegrambot.utils.BotUtil;
 import com.github.anicmv.telegrambot.utils.HttpUtil;
 import java.io.IOException;
 import java.net.URI;
@@ -71,7 +72,7 @@ public class DouyinVideoService {
         Path outputPath = createOutputPath(resolved.id(), resolved.desc());
         boolean downloaded = downloadVideoWithFallback(resolved.downloadUrl(), outputPath);
         if (!downloaded) {
-            deleteQuietly(outputPath);
+            BotUtil.deleteQuietly(outputPath);
             throw new IllegalStateException("视频下载失败，请稍后重试。");
         }
         return new DownloadedVideo(
@@ -621,14 +622,6 @@ public class DouyinVideoService {
             }
         }
         return com.fasterxml.jackson.databind.node.MissingNode.getInstance();
-    }
-
-    private static void deleteQuietly(Path path) {
-        try {
-            Files.deleteIfExists(path);
-        } catch (IOException ignored) {
-            // best effort cleanup
-        }
     }
 
     public record DownloadedVideo(String id, String desc, String author, String sourceUrl, String realVideoUrl, Path path) {

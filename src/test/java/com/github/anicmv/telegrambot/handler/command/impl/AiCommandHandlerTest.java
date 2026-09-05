@@ -1,5 +1,6 @@
 package com.github.anicmv.telegrambot.handler.command.impl;
 
+import com.github.anicmv.telegrambot.utils.BotUtil;
 import com.github.anicmv.telegrambot.service.AiAccessControlService;
 import com.github.anicmv.telegrambot.service.DeepSeekChatService;
 import com.github.anicmv.telegrambot.messenger.Messenger;
@@ -40,9 +41,9 @@ class AiCommandHandlerTest {
 
     @Test
     void shouldExtractPromptAfterCommand() {
-        assertEquals("帮我写周报", AiCommandHandler.extractPrompt("/ai 帮我写周报"));
-        assertEquals("总结今天完成项", AiCommandHandler.extractPrompt("/ai@demo_bot   总结今天完成项"));
-        assertEquals("", AiCommandHandler.extractPrompt("/ai"));
+        assertEquals("帮我写周报", BotUtil.commandArgument("/ai 帮我写周报"));
+        assertEquals("总结今天完成项", BotUtil.commandArgument("/ai@demo_bot   总结今天完成项"));
+        assertEquals("", BotUtil.commandArgument("/ai"));
     }
 
     @Test

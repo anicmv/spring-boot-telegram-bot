@@ -7,6 +7,7 @@ import com.github.anicmv.telegrambot.service.DeepSeekChatService;
 import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.utils.BotUtil;
 import com.github.anicmv.telegrambot.messenger.Messenger;
+import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.config.BotProperties;
 import java.time.Instant;
@@ -16,7 +17,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.meta.api.objects.message.Message;
 
 /**
  * @author anicmv
@@ -99,24 +99,14 @@ public class AiCommandHandler implements BotCommandHandler {
     }
 
     private Integer sendThinkingMessage(BotContext context) {
-        if (context.message() != null && context.message().getMessageId() != null) {
-            return messenger.sendReplyTextAndReturnMessageId(context.chatId(), context.message().getMessageId(), THINKING_TEXT);
-        }
-        messenger.sendText(context.chatId(), THINKING_TEXT);
-        return null;
+        return Replier.of(context, messenger).textAndReturnId(THINKING_TEXT);
     }
 
     private void reply(BotContext context, String text) {
-        if (context.message() != null && context.message().getMessageId() != null) {
-            Integer replyMessageId = messenger.sendReplyMarkdownV2TextAndReturnMessageId(
-                    context.chatId(),
-                    context.message().getMessageId(),
-                    text
-            );
+        Integer replyMessageId = Replier.of(context, messenger).markdownV2AndReturnId(text);
+        if (replyMessageId != null) {
             scheduleAutoDelete(context.chatId(), context.message().getMessageId(), replyMessageId);
-            return;
         }
-        messenger.sendMarkdownV2Text(context.chatId(), text);
     }
 
     private void scheduleAutoDelete(Long chatId, Integer commandMessageId, Integer replyMessageId) {
@@ -194,39 +184,10 @@ public class AiCommandHandler implements BotCommandHandler {
     }
 
     static String resolvePrompt(BotContext context) {
-        String prompt = extractPrompt(context == null ? null : context.text());
+        String prompt = BotUtil.commandArgument(context == null ? null : context.text());
         if (!prompt.isBlank()) {
             return prompt;
         }
-        if (context == null || context.message() == null) {
-            return "";
-        }
-        return extractReplyMessageText(context.message());
-    }
-
-    static String extractPrompt(String text) {
-        if (text == null) {
-            return "";
-        }
-        String trimmed = text.trim();
-        int firstBlank = trimmed.indexOf(' ');
-        if (firstBlank < 0) {
-            return "";
-        }
-        return trimmed.substring(firstBlank + 1).trim();
-    }
-
-    static String extractReplyMessageText(Message message) {
-        if (message == null || message.getReplyToMessage() == null) {
-            return "";
-        }
-        Message replyToMessage = message.getReplyToMessage();
-        if (replyToMessage.getText() != null && !replyToMessage.getText().isBlank()) {
-            return replyToMessage.getText().trim();
-        }
-        if (replyToMessage.getCaption() != null && !replyToMessage.getCaption().isBlank()) {
-            return replyToMessage.getCaption().trim();
-        }
-        return "";
+        return context == null ? "" : BotUtil.repliedMessageText(context.message());
     }
 }

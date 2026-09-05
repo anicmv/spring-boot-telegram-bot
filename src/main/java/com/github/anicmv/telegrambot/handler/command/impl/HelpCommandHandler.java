@@ -5,6 +5,7 @@ import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.handler.command.BotCommandRegistry;
 import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.messenger.Messenger;
+import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
@@ -39,10 +40,6 @@ public class HelpCommandHandler implements BotCommandHandler {
             text.append('\n').append(command.command()).append(' ').append(command.description());
         }
         text.append("\n\n").append(INLINE_USAGE);
-        if (context.message() != null && context.message().getMessageId() != null) {
-            messenger.sendReplyText(context.chatId(), context.message().getMessageId(), text.toString());
-            return;
-        }
-        messenger.sendText(context.chatId(), text.toString());
+        Replier.of(context, messenger).text(text.toString());
     }
 }

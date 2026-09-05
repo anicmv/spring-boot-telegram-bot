@@ -4,6 +4,7 @@ import com.github.anicmv.telegrambot.annotation.BotCommand;
 import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.messenger.Messenger;
+import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -31,26 +32,15 @@ public class TestVideoCommandHandler implements BotCommandHandler {
 
     @Override
     public void execute(BotContext context) {
+        Replier replier = Replier.of(context, messenger);
         if (testVideoPath.isBlank()) {
-            replyText(context, "未配置 bot.test.video-path。");
+            replier.text("未配置 bot.test.video-path。");
             return;
         }
         if (!Files.isRegularFile(Path.of(testVideoPath))) {
-            replyText(context, "看什么看：" + testVideoPath);
+            replier.text("看什么看：" + testVideoPath);
             return;
         }
-        if (context.message() != null && context.message().getMessageId() != null) {
-            messenger.sendReplyVideoByPath(context.chatId(), context.message().getMessageId(), testVideoPath, "看什么看");
-            return;
-        }
-        messenger.sendVideoByPath(context.chatId(), testVideoPath, "看什么看");
-    }
-
-    private void replyText(BotContext context, String text) {
-        if (context.message() != null && context.message().getMessageId() != null) {
-            messenger.sendReplyText(context.chatId(), context.message().getMessageId(), text);
-            return;
-        }
-        messenger.sendText(context.chatId(), text);
+        replier.videoByPath(testVideoPath, "看什么看");
     }
 }

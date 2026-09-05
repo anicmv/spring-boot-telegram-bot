@@ -5,6 +5,7 @@ import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.utils.BotUtil;
 import com.github.anicmv.telegrambot.messenger.Messenger;
+import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.config.MafProperties;
 import org.springframework.stereotype.Component;
@@ -34,14 +35,11 @@ public class MaleAndFemaleCommandHandler implements BotCommandHandler {
         if (message == null) {
             return;
         }
+        Replier replier = Replier.of(context, messenger);
         Message replyTo = message.getReplyToMessage();
         User targetUser = replyTo != null ? replyTo.getFrom() : message.getFrom();
         if (targetUser == null) {
-            if (context.message().getMessageId() != null) {
-                messenger.sendReplyText(context.chatId(), context.message().getMessageId(), "未找到目标用户，无法测定。");
-            } else {
-                messenger.sendText(context.chatId(), "未找到目标用户，无法测定。");
-            }
+            replier.text("未找到目标用户，无法测定。");
             return;
         }
         String fullName = BotUtil.formatUserName(targetUser);
@@ -55,11 +53,7 @@ public class MaleAndFemaleCommandHandler implements BotCommandHandler {
                 + BotUtil.escapeMarkdownV2("💖 娘度：" + getLevel(index))
                 + "\n\n"
                 + BotUtil.escapeMarkdownV2(getComment(index));
-        if (context.message().getMessageId() != null) {
-            messenger.sendReplyMarkdownV2Text(context.chatId(), context.message().getMessageId(), text);
-            return;
-        }
-        messenger.sendMarkdownV2Text(context.chatId(), text);
+        replier.markdownV2(text);
     }
 
     private int getMafIndex(Long userId, String fullName, String userName) {

@@ -5,6 +5,7 @@ import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.service.BotUserProfileService;
 import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.messenger.Messenger;
+import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.BotUserProfile;
 import java.time.Instant;
@@ -45,12 +46,9 @@ public class MatchmakerRegisterCommandHandler implements BotCommandHandler {
             return;
         }
         Message replyToMessage = message.getReplyToMessage();
+        Replier replier = Replier.of(context, messenger);
         if (replyToMessage == null || replyToMessage.getFrom() == null) {
-            Integer replyMessageId = messenger.sendReplyTextAndReturnMessageId(
-                    context.chatId(),
-                    message.getMessageId(),
-                    "请用这个命令回复目标用户的消息。"
-            );
+            Integer replyMessageId = replier.textAndReturnId("请用这个命令回复目标用户的消息。");
             scheduleDelete(context.chatId(), replyMessageId);
             return;
         }
@@ -74,7 +72,7 @@ public class MatchmakerRegisterCommandHandler implements BotCommandHandler {
         String text = existing.isPresent()
                 ? "已更新姻缘用户信息: " + formatUser(profile)
                 : "已加入姻缘用户池: " + formatUser(profile);
-        Integer replyMessageId = messenger.sendReplyTextAndReturnMessageId(context.chatId(), message.getMessageId(), text);
+        Integer replyMessageId = replier.textAndReturnId(text);
         scheduleDelete(context.chatId(), replyMessageId);
     }
 

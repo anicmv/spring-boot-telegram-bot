@@ -4,6 +4,7 @@ import com.github.anicmv.telegrambot.annotation.BotCommand;
 import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.constant.BotConstant;
 import com.github.anicmv.telegrambot.messenger.Messenger;
+import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import org.springframework.stereotype.Component;
 
@@ -24,18 +25,7 @@ public class InlineDemoCommandHandler implements BotCommandHandler {
 
     @Override
     public void execute(BotContext context) {
-        if (context.message() != null && context.message().getMessageId() != null) {
-            messenger.sendReplyTextWithSwitchInlineButton(
-                    context.chatId(),
-                    context.message().getMessageId(),
-                    "点击按钮后，输入框会自动填入 @你的Bot（空查询）。",
-                    "↗ 内联输入示例",
-                    ""
-            );
-            return;
-        }
-        messenger.sendTextWithSwitchInlineButton(
-                context.chatId(),
+        Replier.of(context, messenger).switchInlineButton(
                 "点击按钮后，输入框会自动填入 @你的Bot（空查询）。",
                 "↗ 内联输入示例",
                 ""

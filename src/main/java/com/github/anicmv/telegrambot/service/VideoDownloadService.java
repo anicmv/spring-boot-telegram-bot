@@ -121,7 +121,7 @@ public class VideoDownloadService {
             if (process != null && process.isAlive()) {
                 process.destroyForcibly();
             }
-            deleteQuietly(logFile);
+            BotUtil.deleteQuietly(logFile);
             if (!success) {
                 BotUtil.deleteDirectoryQuietly(tempDir);
             }
@@ -137,17 +137,6 @@ public class VideoDownloadService {
             return content.substring(content.length() - YT_DLP_LOG_TAIL_LIMIT);
         } catch (IOException e) {
             return "<无法读取日志: " + e.getMessage() + ">";
-        }
-    }
-
-    private static void deleteQuietly(Path path) {
-        if (path == null) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(path);
-        } catch (IOException ignored) {
-            // best effort cleanup
         }
     }
 
