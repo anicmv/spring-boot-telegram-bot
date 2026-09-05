@@ -10,36 +10,78 @@ import java.util.List;
  * @author anicmv
  * @date 2026/3/15 21:27
  * @description 机器人对外消息能力抽象（信使），隔离 Telegram SDK。
+ * 文本消息以 {@link #sendTextMessage(TextSpec)} 为核心，历史方法保留为 default 快捷入口。
  */
 public interface Messenger {
 
-    void sendText(Long chatId, String text);
+    /**
+     * 发送文本消息（核心入口）。
+     *
+     * @return 成功时返回新消息 messageId，失败返回 null
+     */
+    Integer sendTextMessage(TextSpec spec);
 
-    void sendReplyText(Long chatId, Integer replyToMessageId, String text);
+    default void sendText(Long chatId, String text) {
+        sendTextMessage(TextSpec.of(chatId, text));
+    }
 
-    Integer sendReplyTextAndReturnMessageId(Long chatId, Integer replyToMessageId, String text);
+    default void sendReplyText(Long chatId, Integer replyToMessageId, String text) {
+        sendTextMessage(TextSpec.of(chatId, text).replyTo(replyToMessageId));
+    }
 
-    void sendHtmlText(Long chatId, String text);
+    default Integer sendReplyTextAndReturnMessageId(Long chatId, Integer replyToMessageId, String text) {
+        return sendTextMessage(TextSpec.of(chatId, text).replyTo(replyToMessageId));
+    }
 
-    Integer sendHtmlTextAndReturnMessageId(Long chatId, String text);
+    default void sendHtmlText(Long chatId, String text) {
+        sendTextMessage(TextSpec.of(chatId, text).html());
+    }
 
-    void sendReplyHtmlText(Long chatId, Integer replyToMessageId, String text);
+    default Integer sendHtmlTextAndReturnMessageId(Long chatId, String text) {
+        return sendTextMessage(TextSpec.of(chatId, text).html());
+    }
 
-    Integer sendReplyHtmlTextAndReturnMessageId(Long chatId, Integer replyToMessageId, String text);
+    default void sendReplyHtmlText(Long chatId, Integer replyToMessageId, String text) {
+        sendTextMessage(TextSpec.of(chatId, text).html().replyTo(replyToMessageId));
+    }
 
-    void sendMarkdownV2Text(Long chatId, String text);
+    default Integer sendReplyHtmlTextAndReturnMessageId(Long chatId, Integer replyToMessageId, String text) {
+        return sendTextMessage(TextSpec.of(chatId, text).html().replyTo(replyToMessageId));
+    }
 
-    void sendReplyMarkdownV2Text(Long chatId, Integer replyToMessageId, String text);
+    default void sendMarkdownV2Text(Long chatId, String text) {
+        sendTextMessage(TextSpec.of(chatId, text).markdownV2());
+    }
 
-    Integer sendReplyMarkdownV2TextAndReturnMessageId(Long chatId, Integer replyToMessageId, String text);
+    default void sendReplyMarkdownV2Text(Long chatId, Integer replyToMessageId, String text) {
+        sendTextMessage(TextSpec.of(chatId, text).markdownV2().replyTo(replyToMessageId));
+    }
 
-    void sendTextWithInlineButtons(Long chatId, String text, List<InlineButton> buttons);
+    default Integer sendReplyMarkdownV2TextAndReturnMessageId(Long chatId, Integer replyToMessageId, String text) {
+        return sendTextMessage(TextSpec.of(chatId, text).markdownV2().replyTo(replyToMessageId));
+    }
 
-    void sendReplyTextWithInlineButtons(Long chatId, Integer replyToMessageId, String text, List<InlineButton> buttons);
+    default void sendTextWithInlineButtons(Long chatId, String text, List<InlineButton> buttons) {
+        if (buttons == null || buttons.isEmpty()) {
+            return;
+        }
+        sendTextMessage(TextSpec.of(chatId, text).callbackButtons(buttons));
+    }
 
-    void sendTextWithSwitchInlineButton(Long chatId, String text, String buttonText, String inlineQuery);
+    default void sendReplyTextWithInlineButtons(Long chatId, Integer replyToMessageId, String text, List<InlineButton> buttons) {
+        if (buttons == null || buttons.isEmpty()) {
+            return;
+        }
+        sendTextMessage(TextSpec.of(chatId, text).callbackButtons(buttons).replyTo(replyToMessageId));
+    }
 
-    void sendReplyTextWithSwitchInlineButton(Long chatId, Integer replyToMessageId, String text, String buttonText, String inlineQuery);
+    default void sendTextWithSwitchInlineButton(Long chatId, String text, String buttonText, String inlineQuery) {
+        sendTextMessage(TextSpec.of(chatId, text).switchInline(buttonText, inlineQuery));
+    }
+
+    default void sendReplyTextWithSwitchInlineButton(Long chatId, Integer replyToMessageId, String text, String buttonText, String inlineQuery) {
+        sendTextMessage(TextSpec.of(chatId, text).switchInline(buttonText, inlineQuery).replyTo(replyToMessageId));
+    }
 
     void sendPhotoByUrl(Long chatId, String photoUrl, String caption);
 
