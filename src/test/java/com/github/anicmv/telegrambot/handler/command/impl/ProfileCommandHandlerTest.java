@@ -77,8 +77,7 @@ class ProfileCommandHandlerTest {
     void shouldGenerateProfileOnDemandWhenMissing() {
         UserProfileEntity generated = new UserProfileEntity();
         generated.setTelegramUserId(999L);
-        generated.setSummary("现场生成的一句话人设");
-        generated.setReport("现场生成的长文正文");
+        generated.setSummary("现场生成的画像正文");
         when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
         when(userProfileRepository.findByTelegramId(999L))
                 .thenReturn(Optional.empty(), Optional.of(generated));
@@ -94,16 +93,14 @@ class ProfileCommandHandlerTest {
         verify(messenger, org.mockito.Mockito.atLeastOnce())
                 .editMessageText(eq(-100123L), eq(700), captor.capture(), eq("HTML"));
         String finalText = captor.getAllValues().getLast();
-        assertTrue(finalText.contains("现场生成的一句话人设"));
-        assertTrue(finalText.contains("<blockquote expandable>现场生成的长文正文"));
+        assertTrue(finalText.contains("<blockquote>现场生成的画像正文"));
     }
 
     @Test
     void shouldFormatExistingProfile() {
         UserProfileEntity profile = new UserProfileEntity();
         profile.setTelegramUserId(999L);
-        profile.setSummary("一个白天摸鱼晚上开黑的抽象乐子人");
-        profile.setReport("段落一\n\n段落二，群里的整活小王。");
+        profile.setSummary("段落一\n\n段落二，群里的整活小王。");
         profile.setModel("qwen3.8-flash");
         profile.setTotalTokens(22867L);
         profile.setAnalyzedMessageCount(42);
@@ -125,8 +122,7 @@ class ProfileCommandHandlerTest {
         assertTrue(text.contains("用户画像："));
         assertTrue(text.contains("@baaadcola"));
         assertTrue(text.contains("样本 42 条 ｜ 群聊 2 个 ｜ 时间范围 05-31 ~ 07-24"));
-        assertTrue(text.contains("<blockquote>一个白天摸鱼晚上开黑的抽象乐子人</blockquote>"));
-        assertTrue(text.contains("<blockquote expandable>段落一\n\n段落二"));
+        assertTrue(text.contains("<blockquote>段落一\n\n段落二"));
         assertTrue(text.contains("Powered by qwen3.8-flash ｜ 22,867 tokens"));
     }
 

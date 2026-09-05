@@ -32,8 +32,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
 CREATE TABLE IF NOT EXISTS user_profile (
     id                       BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     telegram_user_id         BIGINT NOT NULL COMMENT 'Telegram 用户 ID',
-    summary                  TEXT DEFAULT NULL COMMENT '一句话人设',
-    report                   MEDIUMTEXT DEFAULT NULL COMMENT '画像长文正文（乐子人视角报告）',
+    summary                  MEDIUMTEXT DEFAULT NULL COMMENT '画像正文（乐子人视角报告）',
     interests                JSON DEFAULT NULL COMMENT '兴趣标签数组（旧字段，已停用）',
     personality              JSON DEFAULT NULL COMMENT '性格特质（旧字段，已停用）',
     active_hours             VARCHAR(128) DEFAULT NULL COMMENT '活跃时段（旧字段，已停用）',

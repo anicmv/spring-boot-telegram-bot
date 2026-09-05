@@ -74,7 +74,7 @@ class ProfileAnalysisServiceTest {
                 .thenReturn(List.of(message(5L, "我喜欢打游戏"), message(6L, "今晚开黑吗")));
         when(aiChatService.chatWithUsage(anyString(), anyString())).thenReturn(
                 new AiChatService.ChatResult(
-                        "{\"summary\":\"爱打游戏\",\"report\":\"白天摸鱼晚上开黑的典型群友。\\n\\n第二段。\"}", 1234L));
+                        "{\"summary\":\"爱打游戏，白天摸鱼晚上开黑的典型群友。\\n\\n第二段。\"}", 1234L));
         when(aiChatService.currentModel()).thenReturn("qwen3.8-flash");
 
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
@@ -84,8 +84,7 @@ class ProfileAnalysisServiceTest {
         verify(userProfileRepository).upsert(captor.capture());
         UserProfileEntity saved = captor.getValue();
         assertEquals(1L, saved.getTelegramUserId());
-        assertEquals("爱打游戏", saved.getSummary());
-        assertTrue(saved.getReport().contains("开黑"));
+        assertEquals("爱打游戏，白天摸鱼晚上开黑的典型群友。\n\n第二段。", saved.getSummary());
         assertEquals(1234L, saved.getTotalTokens());
         assertEquals(6L, saved.getLastAnalyzedMessageId());
         assertEquals(2, saved.getAnalyzedMessageCount());
@@ -138,7 +137,7 @@ class ProfileAnalysisServiceTest {
         when(chatMessageRepository.findNewerThanByUser(any(), eq(1L), eq(100L), anyInt()))
                 .thenReturn(List.of(message(101L, "新消息")));
         when(aiChatService.chatWithUsage(anyString(), anyString())).thenReturn(
-                new AiChatService.ChatResult("{\"summary\":\"更新后的画像\",\"report\":\"新的正文\"}", 8L));
+                new AiChatService.ChatResult("{\"summary\":\"更新后的画像\"}", 8L));
 
         ProfileAnalysisStats stats = service.analyzeAll(progressLogs::add);
 
@@ -161,7 +160,7 @@ class ProfileAnalysisServiceTest {
                 .thenReturn(List.of(message(5L, "消息内容")));
         when(aiChatService.chatWithUsage(anyString(), anyString())).thenAnswer(invocation -> {
             Thread.sleep(150);
-            return new AiChatService.ChatResult("{\"summary\":\"s\",\"report\":\"r\"}", 1L);
+            return new AiChatService.ChatResult("{\"summary\":\"s\"}", 1L);
         });
 
         long startNanos = System.nanoTime();

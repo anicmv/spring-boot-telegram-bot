@@ -174,7 +174,6 @@ public class ProfileAnalysisService {
         UserProfileEntity entity = oldProfile != null ? oldProfile : new UserProfileEntity();
         entity.setTelegramUserId(userId);
         entity.setSummary(output.summary());
-        entity.setReport(output.report());
         entity.setTotalTokens(accumulatedTokens(oldProfile, tokensUsed));
         int oldCount = oldProfile != null && oldProfile.getAnalyzedMessageCount() != null
                 ? oldProfile.getAnalyzedMessageCount() : 0;
@@ -211,7 +210,6 @@ public class ProfileAnalysisService {
         try {
             Map<String, Object> values = new LinkedHashMap<>();
             values.put("summary", profile.getSummary());
-            values.put("report", profile.getReport());
             return objectMapper.writeValueAsString(values);
         } catch (JsonProcessingException e) {
             log.warn("旧画像序列化失败: userId={}", profile.getTelegramUserId(), e);
@@ -257,8 +255,7 @@ public class ProfileAnalysisService {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record ProfileModelOutput(
-            @JsonProperty("summary") String summary,
-            @JsonProperty("report") String report
+            @JsonProperty("summary") String summary
     ) {
     }
 }

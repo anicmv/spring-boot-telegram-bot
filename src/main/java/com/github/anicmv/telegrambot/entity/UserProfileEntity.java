@@ -25,9 +25,6 @@ public class UserProfileEntity {
     @TableField("summary")
     private String summary;
 
-    @TableField("report")
-    private String report;
-
     @TableField("interests")
     private String interests;
 

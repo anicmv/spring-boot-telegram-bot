@@ -14,15 +14,16 @@ import com.github.anicmv.telegrambot.repository.ChatMessageRepository;
 import com.github.anicmv.telegrambot.repository.UserProfileRepository;
 import com.github.anicmv.telegrambot.service.ProfileAnalysisService;
 import com.github.anicmv.telegrambot.utils.BotUtil;
-import java.time.format.DateTimeFormatter;
-import java.util.Set;
-import java.util.concurrent.RejectedExecutionException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
+
+import java.time.format.DateTimeFormatter;
+import java.util.Set;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * @author anicmv
@@ -136,7 +137,7 @@ public class ProfileCommandHandler implements BotCommandHandler {
      * 生成后立即返回画像；后续增量仍由定时任务滚动合并。
      */
     private UserProfileEntity generateOnDemand(BotContext context, Long targetUserId, Integer progressMessageId) {
-        editProgress(context, progressMessageId, "🔬 首次生成画像，正在分析聊天记录，可能需要几十秒...");
+        editProgress(context, progressMessageId, "🔬 正在生成画像...");
         try {
             ProfileAnalysisService.Result result = profileAnalysisService.analyzeUser(targetUserId);
             if (result == ProfileAnalysisService.Result.SKIPPED) {
@@ -159,7 +160,7 @@ public class ProfileCommandHandler implements BotCommandHandler {
     }
 
     /**
-     * 渲染画像报告（HTML 解析模式）：标题 + 样本统计 + 一句话人设引用 + 可折叠长文正文 + 页脚。
+     * 渲染画像报告（HTML 解析模式）：标题 + 样本统计 + 画像正文引用 + 页脚。
      */
     String formatProfile(Long targetUserId, UserProfileEntity profile) {
         StringBuilder builder = new StringBuilder();
@@ -167,11 +168,6 @@ public class ProfileCommandHandler implements BotCommandHandler {
         builder.append('\n').append(statsLine(profile));
         if (isNotBlank(profile.getSummary())) {
             builder.append("\n\n<blockquote>").append(BotUtil.escapeHtml(profile.getSummary().trim())).append("</blockquote>");
-        }
-        if (isNotBlank(profile.getReport())) {
-            builder.append("\n\n<blockquote expandable>")
-                    .append(BotUtil.escapeHtml(profile.getReport().trim()))
-                    .append("</blockquote>");
         }
         builder.append("\n\n").append(footerLine(profile));
         return builder.toString();
