@@ -1,14 +1,12 @@
 package com.github.anicmv.telegrambot.handler.command.impl;
 
 import com.github.anicmv.telegrambot.config.BotProperties;
-import com.github.anicmv.telegrambot.entity.ProfileAllowUserEntity;
 import com.github.anicmv.telegrambot.entity.UserProfileEntity;
 import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.messenger.TextSpec;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.BotUserProfile;
 import com.github.anicmv.telegrambot.model.InlineButton;
-import com.github.anicmv.telegrambot.model.ProfileAllowStatus;
 import com.github.anicmv.telegrambot.model.UpdateType;
 import com.github.anicmv.telegrambot.repository.BotUserRepository;
 import com.github.anicmv.telegrambot.repository.ChatMessageRepository;
@@ -214,7 +212,6 @@ class ProfileCommandHandlerTest {
     @Test
     void unauthorizedUserShouldTriggerApprovalRequestWithButtons() {
         when(profileAllowUserRepository.isApproved(999L)).thenReturn(false);
-        when(profileAllowUserRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
         when(messenger.sendTextMessage(any(TextSpec.class))).thenReturn(801);
 
         handler.execute(context("/profile"));
@@ -235,23 +232,6 @@ class ProfileCommandHandlerTest {
         long delaySeconds = java.time.Duration.between(java.time.Instant.now(), instantCaptor.getValue()).getSeconds();
         assertTrue(delaySeconds >= 20 && delaySeconds <= 35, "expect ~30s delay, got " + delaySeconds);
         verify(userProfileRepository, never()).findByTelegramId(anyLong());
-    }
-
-    @Test
-    void pendingRequestShouldOnlyShowWaitingHint() {
-        when(profileAllowUserRepository.isApproved(999L)).thenReturn(false);
-        ProfileAllowUserEntity pending = new ProfileAllowUserEntity();
-        pending.setTelegramUserId(999L);
-        pending.setStatus(ProfileAllowStatus.PENDING.name());
-        when(profileAllowUserRepository.findByTelegramId(999L)).thenReturn(Optional.of(pending));
-
-        handler.execute(context("/profile"));
-
-        verify(profileAllowUserRepository, never()).createOrResetRequest(anyLong());
-        verify(messenger, never()).sendTextMessage(any(TextSpec.class));
-        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(messenger).sendReplyText(eq(-100123L), eq(7), captor.capture());
-        assertTrue(captor.getValue().contains("待管理员确认"));
     }
 
     @Test

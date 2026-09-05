@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.github.anicmv.telegrambot.entity.ProfileAllowUserEntity;
 import com.github.anicmv.telegrambot.mapper.ProfileAllowUserMapper;
 import com.github.anicmv.telegrambot.model.ProfileAllowStatus;
-import java.util.Optional;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 
@@ -21,13 +20,6 @@ public class ProfileAllowUserRepository {
 
     public ProfileAllowUserRepository(ProfileAllowUserMapper profileAllowUserMapper) {
         this.profileAllowUserMapper = profileAllowUserMapper;
-    }
-
-    public Optional<ProfileAllowUserEntity> findByTelegramId(Long telegramUserId) {
-        if (telegramUserId == null) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(selectByTelegramId(telegramUserId));
     }
 
     public boolean isApproved(Long telegramUserId) {

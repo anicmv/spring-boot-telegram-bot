@@ -11,7 +11,6 @@ import com.github.anicmv.telegrambot.messenger.TextSpec;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.BotUserProfile;
 import com.github.anicmv.telegrambot.model.InlineButton;
-import com.github.anicmv.telegrambot.model.ProfileAllowStatus;
 import com.github.anicmv.telegrambot.repository.BotUserRepository;
 import com.github.anicmv.telegrambot.repository.ChatMessageRepository;
 import com.github.anicmv.telegrambot.repository.ProfileAllowUserRepository;
@@ -84,18 +83,11 @@ public class ProfileCommandHandler implements BotCommandHandler {
     }
 
     /**
-     * 无权限用户发起授权申请：落 PENDING 并发带 ✅/❌ 按钮的审批消息，仅 admin 点击生效；
-     * 已有待审申请时只回等待提示，防刷。
+     * 无权限用户发起授权申请：落 PENDING 并发带 ✅/❌ 按钮的审批消息，仅 admin 点击生效。
+     * 审批消息会超时自动清理，因此 PENDING 期间重复发送同样重新推送审批消息（幂等刷新状态）。
      */
     private void requestAccess(BotContext context) {
         Long userId = context.userId();
-        boolean pending = profileAllowUserRepository.findByTelegramId(userId)
-                .map(entity -> ProfileAllowStatus.PENDING.name().equals(entity.getStatus()))
-                .orElse(false);
-        if (pending) {
-            replyPlain(context, "已有画像使用申请待管理员确认，请耐心稍候。");
-            return;
-        }
         profileAllowUserRepository.createOrResetRequest(userId);
         String prefix = BotConstant.CALLBACK_ACTION_PROFILE_AUTH + ":";
         Integer approvalMessageId = messenger.sendTextMessage(TextSpec.of(context.chatId(),
