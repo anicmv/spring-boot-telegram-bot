@@ -58,7 +58,7 @@ public class XpCallbackActionHandler implements CallbackActionHandler {
         if (fileId == null) {
             fileId = inline
                     ? uploadInlineFileId(imageUrl)
-                    : messenger.uploadPhotoAndEchoFileId(botProperties.getChannelId(), imageUrl);
+                    : messenger.uploadPhotoViaChannel(botProperties.getChannelId(), imageUrl);
             if (fileId != null && !fileId.isBlank()) {
                 fileIdCache.put(xpEnum.name(), fileId);
             }
@@ -109,7 +109,7 @@ public class XpCallbackActionHandler implements CallbackActionHandler {
             }
             tempFile = Files.createTempFile("xp-inline-", ".img");
             Files.write(tempFile, bytes);
-            return messenger.uploadPhotoAndEchoFileId(botProperties.getChannelId(), tempFile.toString());
+            return messenger.uploadPhotoViaChannel(botProperties.getChannelId(), tempFile.toString());
         } catch (Exception exception) {
             log.warn("Failed to prepare XP inline upload from {}", imageUrl, exception);
             return null;

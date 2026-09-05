@@ -257,7 +257,7 @@ public class TelegramMessenger implements Messenger {
     // ==================== 上传换取 file_id ====================
 
     @Override
-    public String uploadPhotoAndEchoFileId(Long channelId, String urlOrPath) {
+    public String uploadPhotoViaChannel(Long channelId, String urlOrPath) {
         if (channelId == null || blank(urlOrPath)) {
             return null;
         }

@@ -1,7 +1,7 @@
 package com.github.anicmv.telegrambot.listener;
 
 import com.github.anicmv.telegrambot.entity.ChatImageEntity;
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 import com.github.anicmv.telegrambot.listener.filter.GroupMessageFilter;
 import com.github.anicmv.telegrambot.repository.ChatImageRepository;
 import java.io.InputStream;
@@ -41,7 +41,7 @@ public class ImageRecordListener {
     }
 
     @EventListener
-    public void onGroupMessage(GroupMessageReceivedEvent event) {
+    public void onGroupMessage(MessageReceivedEvent event) {
         if (event == null || !passFilters(event)) {
             return;
         }
@@ -52,7 +52,7 @@ public class ImageRecordListener {
         }
     }
 
-    private boolean passFilters(GroupMessageReceivedEvent event) {
+    private boolean passFilters(MessageReceivedEvent event) {
         for (GroupMessageFilter filter : filters) {
             if (!filter.accept(event)) {
                 return false;
@@ -61,7 +61,7 @@ public class ImageRecordListener {
         return true;
     }
 
-    private void saveSafely(GroupMessageReceivedEvent event) {
+    private void saveSafely(MessageReceivedEvent event) {
         try {
             org.telegram.telegrambots.meta.api.objects.File fileInfo =
                     telegramClient.execute(new GetFile(resolveFileId(event)));
@@ -75,11 +75,11 @@ public class ImageRecordListener {
         }
     }
 
-    private String resolveFileId(GroupMessageReceivedEvent event) {
+    private String resolveFileId(MessageReceivedEvent event) {
         return event.isStaticSticker() ? event.sticker().fileId() : event.photo().fileId();
     }
 
-    private ChatImageEntity toEntity(GroupMessageReceivedEvent event, byte[] imageData) {
+    private ChatImageEntity toEntity(MessageReceivedEvent event, byte[] imageData) {
         boolean sticker = event.isStaticSticker();
         ChatImageEntity entity = new ChatImageEntity();
         entity.setImageType(sticker ? "sticker" : "photo");

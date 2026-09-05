@@ -1,6 +1,6 @@
 package com.github.anicmv.telegrambot.listener.filter;
 
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 
 /**
  * @author anicmv
@@ -16,5 +16,5 @@ public interface GroupMessageFilter {
      * @param event 群消息事件，保证非 null
      * @return true 表示继续走链，false 表示不记录
      */
-    boolean accept(GroupMessageReceivedEvent event);
+    boolean accept(MessageReceivedEvent event);
 }

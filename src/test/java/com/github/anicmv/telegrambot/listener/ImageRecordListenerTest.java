@@ -2,7 +2,7 @@ package com.github.anicmv.telegrambot.listener;
 
 import com.github.anicmv.telegrambot.config.BotProperties;
 import com.github.anicmv.telegrambot.entity.ChatImageEntity;
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 import com.github.anicmv.telegrambot.listener.filter.BotMessageFilter;
 import com.github.anicmv.telegrambot.listener.filter.GroupChatFilter;
 import com.github.anicmv.telegrambot.listener.filter.GroupMessageFilter;
@@ -131,22 +131,22 @@ class ImageRecordListenerTest {
         return new ImageRecordListener(telegramClient, chatImageRepository, executor, filters);
     }
 
-    private GroupMessageReceivedEvent textEvent() {
-        return new GroupMessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false, false,
+    private MessageReceivedEvent textEvent() {
+        return new MessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false, false,
                 "text", null, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
-    private GroupMessageReceivedEvent stickerEvent(String format) {
-        GroupMessageReceivedEvent.StickerInfo sticker = new GroupMessageReceivedEvent.StickerInfo(
+    private MessageReceivedEvent stickerEvent(String format) {
+        MessageReceivedEvent.StickerInfo sticker = new MessageReceivedEvent.StickerInfo(
                 "fid-1", "uniq-1", format, "😺", "catset", 512, 512);
-        return new GroupMessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false, false,
+        return new MessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false, false,
                 "sticker", sticker, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
-    private GroupMessageReceivedEvent photoEvent() {
-        GroupMessageReceivedEvent.PhotoInfo photo = new GroupMessageReceivedEvent.PhotoInfo(
+    private MessageReceivedEvent photoEvent() {
+        MessageReceivedEvent.PhotoInfo photo = new MessageReceivedEvent.PhotoInfo(
                 "fid-p", "uniq-p", 1280, 720);
-        return new GroupMessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false, false,
+        return new MessageReceivedEvent(-100L, "supergroup", 999L, "tester", "Test", false, false, false,
                 "photo", null, photo, null, 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 }

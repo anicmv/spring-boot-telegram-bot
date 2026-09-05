@@ -1,6 +1,6 @@
 package com.github.anicmv.telegrambot.listener.filter;
 
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 import com.github.anicmv.telegrambot.handler.command.BotCommandRegistry;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.Order;
@@ -24,7 +24,7 @@ public class CommandMessageFilter implements GroupMessageFilter {
     }
 
     @Override
-    public boolean accept(GroupMessageReceivedEvent event) {
+    public boolean accept(MessageReceivedEvent event) {
         String text = event.text();
         if (text == null || !text.startsWith("/")) {
             return true;

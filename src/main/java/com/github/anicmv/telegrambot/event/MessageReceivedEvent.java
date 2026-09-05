@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
@@ -14,10 +15,11 @@ import org.telegram.telegrambots.meta.api.objects.stickers.Sticker;
 /**
  * @author anicmv
  * @date 2026/9/4
- * @description 群消息接收事件，由 {@code UpdateDispatcher} 在 MESSAGE 更新路由前发布。
- * 采用纯 JDK 字段，监听器侧无需依赖 Telegram SDK；不可记录的更新（服务消息等）返回 null。
+ * @description 消息接收事件（私聊/群聊均发布，由监听器侧过滤），
+ * 由 {@code UpdateDispatcher} 在 MESSAGE 更新路由前发布。
+ * 采用纯 JDK 字段，监听器侧无需依赖 Telegram SDK；不可记录的更新（服务消息等）返回 Optional.empty()。
  */
-public record GroupMessageReceivedEvent(
+public record MessageReceivedEvent(
         Long chatId,
         String chatType,
         Long userId,
@@ -73,24 +75,24 @@ public record GroupMessageReceivedEvent(
         return photo != null;
     }
 
-    public static GroupMessageReceivedEvent from(BotContext context) {
+    public static Optional<MessageReceivedEvent> from(BotContext context) {
         if (context == null) {
-            return null;
+            return Optional.empty();
         }
         Message message = context.message();
         if (message == null) {
-            return null;
+            return Optional.empty();
         }
         Chat chat = message.getChat();
         if (chat == null || chat.getType() == null) {
-            return null;
+            return Optional.empty();
         }
         String messageType = resolveMessageType(message);
         if (messageType == null) {
-            return null;
+            return Optional.empty();
         }
         User from = message.getFrom();
-        return new GroupMessageReceivedEvent(
+        return Optional.of(new MessageReceivedEvent(
                 chat.getId(),
                 chat.getType(),
                 from != null ? from.getId() : null,
@@ -107,7 +109,7 @@ public record GroupMessageReceivedEvent(
                 message.getDate() != null
                         ? LocalDateTime.ofInstant(Instant.ofEpochSecond(message.getDate()), ZoneId.systemDefault())
                         : null
-        );
+        ));
     }
 
     private static StickerInfo resolveStickerInfo(Sticker sticker) {

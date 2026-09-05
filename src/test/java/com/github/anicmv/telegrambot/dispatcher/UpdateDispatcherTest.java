@@ -2,7 +2,7 @@ package com.github.anicmv.telegrambot.dispatcher;
 
 import com.github.anicmv.telegrambot.dispatcher.processor.UpdateProcessor;
 import com.github.anicmv.telegrambot.dispatcher.processor.UpdateProcessorRegistry;
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.UpdateType;
 import org.junit.jupiter.api.Test;
@@ -44,7 +44,7 @@ class UpdateDispatcherTest {
 
         ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
         verify(eventPublisher).publishEvent(captor.capture());
-        assertInstanceOf(GroupMessageReceivedEvent.class, captor.getValue());
+        assertInstanceOf(MessageReceivedEvent.class, captor.getValue());
         verify(processor).handle(any(BotContext.class));
     }
 

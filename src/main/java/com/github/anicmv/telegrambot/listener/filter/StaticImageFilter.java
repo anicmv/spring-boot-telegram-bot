@@ -1,6 +1,6 @@
 package com.github.anicmv.telegrambot.listener.filter;
 
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 public class StaticImageFilter implements GroupMessageFilter {
 
     @Override
-    public boolean accept(GroupMessageReceivedEvent event) {
+    public boolean accept(MessageReceivedEvent event) {
         return event.isStaticSticker() || event.isPhotoMessage();
     }
 }

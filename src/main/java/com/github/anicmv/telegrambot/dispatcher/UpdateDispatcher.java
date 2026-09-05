@@ -2,7 +2,7 @@ package com.github.anicmv.telegrambot.dispatcher;
 
 import com.github.anicmv.telegrambot.dispatcher.processor.UpdateProcessor;
 import com.github.anicmv.telegrambot.dispatcher.processor.UpdateProcessorRegistry;
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.UpdateType;
 import lombok.extern.log4j.Log4j2;
@@ -64,12 +64,9 @@ public class UpdateDispatcher {
      */
     private void publishMessageReceivedEvent(BotContext context) {
         try {
-            GroupMessageReceivedEvent event = GroupMessageReceivedEvent.from(context);
-            if (event != null) {
-                eventPublisher.publishEvent(event);
-            }
+            MessageReceivedEvent.from(context).ifPresent(eventPublisher::publishEvent);
         } catch (Exception e) {
-            log.error("发布 GroupMessageReceivedEvent 失败: chatId={}", context.chatId(), e);
+            log.error("发布 MessageReceivedEvent 失败: chatId={}", context.chatId(), e);
         }
     }
 }

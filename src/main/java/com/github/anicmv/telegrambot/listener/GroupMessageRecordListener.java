@@ -1,7 +1,7 @@
 package com.github.anicmv.telegrambot.listener;
 
 import com.github.anicmv.telegrambot.entity.ChatMessageEntity;
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 import com.github.anicmv.telegrambot.listener.filter.GroupMessageFilter;
 import com.github.anicmv.telegrambot.repository.ChatMessageRepository;
 import java.util.List;
@@ -35,7 +35,7 @@ public class GroupMessageRecordListener {
     }
 
     @EventListener
-    public void onGroupMessage(GroupMessageReceivedEvent event) {
+    public void onGroupMessage(MessageReceivedEvent event) {
         if (event == null || !passFilters(event)) {
             return;
         }
@@ -46,7 +46,7 @@ public class GroupMessageRecordListener {
         }
     }
 
-    private boolean passFilters(GroupMessageReceivedEvent event) {
+    private boolean passFilters(MessageReceivedEvent event) {
         for (GroupMessageFilter filter : filters) {
             if (!filter.accept(event)) {
                 return false;
@@ -55,7 +55,7 @@ public class GroupMessageRecordListener {
         return true;
     }
 
-    private void saveSafely(GroupMessageReceivedEvent event) {
+    private void saveSafely(MessageReceivedEvent event) {
         try {
             chatMessageRepository.insert(toEntity(event));
         } catch (Exception e) {
@@ -63,7 +63,7 @@ public class GroupMessageRecordListener {
         }
     }
 
-    private ChatMessageEntity toEntity(GroupMessageReceivedEvent event) {
+    private ChatMessageEntity toEntity(MessageReceivedEvent event) {
         ChatMessageEntity entity = new ChatMessageEntity();
         entity.setChatId(event.chatId());
         entity.setTelegramUserId(event.userId());

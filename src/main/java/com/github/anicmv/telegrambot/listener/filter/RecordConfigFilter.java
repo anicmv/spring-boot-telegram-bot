@@ -1,7 +1,7 @@
 package com.github.anicmv.telegrambot.listener.filter;
 
 import com.github.anicmv.telegrambot.config.BotProperties;
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -23,7 +23,7 @@ public class RecordConfigFilter implements GroupMessageFilter {
     }
 
     @Override
-    public boolean accept(GroupMessageReceivedEvent event) {
+    public boolean accept(MessageReceivedEvent event) {
         BotProperties.Profile profileProps = properties.getProfile();
         return profileProps.isRecordEnabled()
                 && profileProps.getRecordGroupIds().contains(event.chatId());

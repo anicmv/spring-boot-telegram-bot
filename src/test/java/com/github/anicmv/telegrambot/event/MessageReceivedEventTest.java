@@ -15,13 +15,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class GroupMessageReceivedEventTest {
+class MessageReceivedEventTest {
 
     @Test
     void shouldExtractTextMessageFromSuperGroup() {
         BotContext context = messageContext(-100123L, "supergroup", "今天天气不错");
 
-        GroupMessageReceivedEvent event = GroupMessageReceivedEvent.from(context);
+        MessageReceivedEvent event = MessageReceivedEvent.from(context).orElseThrow();
 
         assertNotNull(event);
         assertTrue(event.isGroupChat());
@@ -40,7 +40,7 @@ class GroupMessageReceivedEventTest {
     void privateChatShouldNotBeGroupChat() {
         BotContext context = messageContext(555L, "private", "你好");
 
-        GroupMessageReceivedEvent event = GroupMessageReceivedEvent.from(context);
+        MessageReceivedEvent event = MessageReceivedEvent.from(context).orElseThrow();
 
         assertNotNull(event);
         assertFalse(event.isGroupChat());
@@ -50,7 +50,7 @@ class GroupMessageReceivedEventTest {
     void basicGroupShouldBeGroupChat() {
         BotContext context = messageContext(-456L, "group", "大家好");
 
-        GroupMessageReceivedEvent event = GroupMessageReceivedEvent.from(context);
+        MessageReceivedEvent event = MessageReceivedEvent.from(context).orElseThrow();
 
         assertNotNull(event);
         assertTrue(event.isGroupChat());
@@ -62,7 +62,7 @@ class GroupMessageReceivedEventTest {
         message.setText(null);
         message.setPhoto(List.of(new PhotoSize()));
 
-        GroupMessageReceivedEvent event = GroupMessageReceivedEvent.from(BotContext.from(wrap(message)));
+        MessageReceivedEvent event = MessageReceivedEvent.from(BotContext.from(wrap(message))).orElseThrow();
 
         assertNotNull(event);
         assertEquals("photo", event.messageType());
@@ -76,7 +76,7 @@ class GroupMessageReceivedEventTest {
         message.setPhoto(List.of(new PhotoSize()));
         message.setCaption("看看这个");
 
-        GroupMessageReceivedEvent event = GroupMessageReceivedEvent.from(BotContext.from(wrap(message)));
+        MessageReceivedEvent event = MessageReceivedEvent.from(BotContext.from(wrap(message))).orElseThrow();
 
         assertNotNull(event);
         assertEquals("photo", event.messageType());
@@ -84,30 +84,28 @@ class GroupMessageReceivedEventTest {
     }
 
     @Test
-    void serviceMessageWithoutRecordableTypeShouldReturnNull() {
+    void serviceMessageWithoutRecordableTypeShouldBeEmpty() {
         Message message = baseMessage(-100123L, "supergroup");
         message.setText(null);
 
-        GroupMessageReceivedEvent event = GroupMessageReceivedEvent.from(BotContext.from(wrap(message)));
-
-        assertNull(event);
+        assertTrue(MessageReceivedEvent.from(BotContext.from(wrap(message))).isEmpty());
     }
 
     @Test
     void textShouldBeTruncatedToMaxLength() {
-        String longText = "话".repeat(GroupMessageReceivedEvent.MAX_TEXT_LENGTH + 500);
+        String longText = "话".repeat(MessageReceivedEvent.MAX_TEXT_LENGTH + 500);
         BotContext context = messageContext(-100123L, "supergroup", longText);
 
-        GroupMessageReceivedEvent event = GroupMessageReceivedEvent.from(context);
+        MessageReceivedEvent event = MessageReceivedEvent.from(context).orElseThrow();
 
         assertNotNull(event);
-        assertEquals(GroupMessageReceivedEvent.MAX_TEXT_LENGTH, event.text().length());
+        assertEquals(MessageReceivedEvent.MAX_TEXT_LENGTH, event.text().length());
     }
 
     @Test
-    void nullContextOrNoMessageShouldReturnNull() {
-        assertNull(GroupMessageReceivedEvent.from(null));
-        assertNull(GroupMessageReceivedEvent.from(BotContext.from(new Update())));
+    void nullContextOrNoMessageShouldBeEmpty() {
+        assertTrue(MessageReceivedEvent.from(null).isEmpty());
+        assertTrue(MessageReceivedEvent.from(BotContext.from(new Update())).isEmpty());
     }
 
     private BotContext messageContext(Long chatId, String chatType, String text) {

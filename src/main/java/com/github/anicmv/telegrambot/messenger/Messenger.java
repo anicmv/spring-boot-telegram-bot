@@ -97,7 +97,10 @@ public interface Messenger {
 
     boolean sendReplyDocumentByPath(Long chatId, Integer replyToMessageId, String documentPath, String caption);
 
-    String uploadPhotoAndEchoFileId(Long channelId, String urlOrPath);
+    /**
+     * 上传图片到中转 channel 换取 file_id，并额外向该 channel 回发一条 file_id 文本消息存档；失败返回 null。
+     */
+    String uploadPhotoViaChannel(Long channelId, String urlOrPath);
 
     /**
      * 上传照片字节到指定会话换取新 file_id，发送后立即删除消息；用于刷新过期的 file_reference。

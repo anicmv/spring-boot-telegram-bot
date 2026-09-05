@@ -1,6 +1,6 @@
 package com.github.anicmv.telegrambot.listener.filter;
 
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 public class ForwardedMessageFilter implements GroupMessageFilter {
 
     @Override
-    public boolean accept(GroupMessageReceivedEvent event) {
+    public boolean accept(MessageReceivedEvent event) {
         return !event.forwarded();
     }
 }

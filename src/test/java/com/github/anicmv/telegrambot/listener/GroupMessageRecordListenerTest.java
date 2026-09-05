@@ -3,7 +3,7 @@ package com.github.anicmv.telegrambot.listener;
 import com.github.anicmv.telegrambot.annotation.BotCommand;
 import com.github.anicmv.telegrambot.config.BotProperties;
 import com.github.anicmv.telegrambot.entity.ChatMessageEntity;
-import com.github.anicmv.telegrambot.event.GroupMessageReceivedEvent;
+import com.github.anicmv.telegrambot.event.MessageReceivedEvent;
 import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.handler.command.BotCommandRegistry;
 import com.github.anicmv.telegrambot.listener.filter.BotMessageFilter;
@@ -177,8 +177,8 @@ class GroupMessageRecordListenerTest {
         return new GroupMessageRecordListener(chatMessageRepository, taskExecutor, filters);
     }
 
-    private GroupMessageReceivedEvent commandEvent(long chatId, String chatType, String text) {
-        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false, false,
+    private MessageReceivedEvent commandEvent(long chatId, String chatType, String text) {
+        return new MessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false, false,
                 "text", null, null, text, 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
@@ -196,23 +196,23 @@ class GroupMessageRecordListenerTest {
         }
     }
 
-    private GroupMessageReceivedEvent event(long chatId, String chatType) {
-        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false, false,
+    private MessageReceivedEvent event(long chatId, String chatType) {
+        return new MessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false, false,
                 "text", null, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
-    private GroupMessageReceivedEvent botEvent(long chatId, String chatType) {
-        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", true, false, false,
+    private MessageReceivedEvent botEvent(long chatId, String chatType) {
+        return new MessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", true, false, false,
                 "text", null, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
-    private GroupMessageReceivedEvent forwardedEvent(long chatId, String chatType) {
-        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, true, false,
+    private MessageReceivedEvent forwardedEvent(long chatId, String chatType) {
+        return new MessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, true, false,
                 "text", null, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 
-    private GroupMessageReceivedEvent inlineEvent(long chatId, String chatType) {
-        return new GroupMessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false, true,
+    private MessageReceivedEvent inlineEvent(long chatId, String chatType) {
+        return new MessageReceivedEvent(chatId, chatType, 999L, "tester", "Test", false, false, true,
                 "text", null, null, "hello", 42L, LocalDateTime.of(2026, 9, 3, 12, 0));
     }
 }
