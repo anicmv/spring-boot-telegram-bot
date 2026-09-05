@@ -43,6 +43,9 @@ class ProfileAnalysisServiceTest {
     @Mock
     private AiChatService aiChatService;
 
+    @Mock
+    private com.github.anicmv.telegrambot.messenger.Messenger messenger;
+
     private BotProperties properties;
     private ProfileAnalysisService service;
     private List<String> progressLogs;
@@ -52,7 +55,7 @@ class ProfileAnalysisServiceTest {
         properties = new BotProperties();
         properties.getProfile().getRecordGroupIds().add(-100L);
         service = new ProfileAnalysisService(chatMessageRepository, userProfileRepository,
-                aiChatService, properties, new ObjectMapper());
+                aiChatService, properties, new ObjectMapper(), messenger);
         progressLogs = new ArrayList<>();
     }
 
@@ -89,6 +92,35 @@ class ProfileAnalysisServiceTest {
         assertEquals(6L, saved.getLastAnalyzedMessageId());
         assertEquals(2, saved.getAnalyzedMessageCount());
         assertEquals("qwen3.8-flash", saved.getModel());
+    }
+
+    @Test
+    void shouldIncludeUserIdentityInPrompt() {
+        ChatMessageEntity message = message(5L, "今晚开黑吗");
+        message.setUsername("baaadcola");
+        message.setNickname("抽象带哥");
+        when(chatMessageRepository.findDistinctUserIdsWithNewMessages(any())).thenReturn(List.of(1L));
+        when(userProfileRepository.findByTelegramId(1L)).thenReturn(Optional.empty());
+        when(chatMessageRepository.findNewerThanByUser(any(), eq(1L), eq(0L), anyInt()))
+                .thenReturn(List.of(message));
+        org.telegram.telegrambots.meta.api.objects.chat.ChatFullInfo fullInfo =
+                org.telegram.telegrambots.meta.api.objects.chat.ChatFullInfo.builder()
+                        .id(1L).type("private").build();
+        fullInfo.setBio("只玩位搬的养老玩家");
+        when(messenger.getChatFullInfo(1L)).thenReturn(fullInfo);
+        when(aiChatService.chatWithUsage(anyString(), anyString())).thenReturn(
+                new AiChatService.ChatResult("{\"summary\":\"s\"}", 1L));
+        when(aiChatService.currentModel()).thenReturn("qwen3.8-flash");
+
+        service.analyzeAll(progressLogs::add);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(aiChatService).chatWithUsage(anyString(), promptCaptor.capture());
+        String userPrompt = promptCaptor.getValue();
+        assertTrue(userPrompt.contains("username: @baaadcola"));
+        assertTrue(userPrompt.contains("昵称: 抽象带哥"));
+        assertTrue(userPrompt.contains("Telegram 简介: 只玩位搬的养老玩家"));
+        assertTrue(userPrompt.contains("今晚开黑吗"));
     }
 
     @Test

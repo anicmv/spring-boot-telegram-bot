@@ -1,16 +1,17 @@
 package com.github.anicmv.telegrambot.event;
 
 import com.github.anicmv.telegrambot.model.BotContext;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.List;
-import java.util.Optional;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.photo.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.stickers.Sticker;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * @author anicmv
@@ -84,7 +85,7 @@ public record MessageReceivedEvent(
             return Optional.empty();
         }
         Chat chat = message.getChat();
-        if (chat == null || chat.getType() == null) {
+        if (chat == null) {
             return Optional.empty();
         }
         String messageType = resolveMessageType(message);
@@ -98,7 +99,7 @@ public record MessageReceivedEvent(
                 from != null ? from.getId() : null,
                 from != null ? from.getUserName() : null,
                 from != null ? displayName(from) : null,
-                from != null && Boolean.TRUE.equals(from.getIsBot()),
+                from != null && from.getIsBot(),
                 message.getForwardOrigin() != null,
                 message.getViaBot() != null,
                 messageType,
@@ -130,7 +131,7 @@ public record MessageReceivedEvent(
         if (sizes == null || sizes.isEmpty()) {
             return null;
         }
-        PhotoSize largest = sizes.get(sizes.size() - 1);
+        PhotoSize largest = sizes.getLast();
         return new PhotoInfo(largest.getFileId(), largest.getFileUniqueId(),
                 largest.getWidth(), largest.getHeight());
     }
@@ -169,7 +170,7 @@ public record MessageReceivedEvent(
     }
 
     private static String displayName(User from) {
-        String firstName = from.getFirstName() == null ? "" : from.getFirstName().trim();
+        String firstName = from.getFirstName().trim();
         String lastName = from.getLastName() == null ? "" : from.getLastName().trim();
         String fullName = (firstName + " " + lastName).trim();
         return fullName.isEmpty() ? from.getUserName() : fullName;

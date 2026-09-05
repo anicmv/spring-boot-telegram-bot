@@ -61,7 +61,9 @@
 
 ## 用户画像
 
-链路：`chat_message`（消息记录）→ `ProfileAnalysisService`（逐用户增量取消息，交给 LLM 生成/合并 JSON 画像）→ `user_profile` 表 → `/profile` 渲染（HTML 引用块 + 样本统计 + token 页脚）。
+链路：`chat_message`（消息记录）→ `ProfileAnalysisService`（逐用户增量取消息，连同用户名/昵称/Telegram 简介一并交给 LLM 生成/合并 JSON 画像）→ `user_profile` 表 → `/profile` 渲染（HTML 引用块 + 样本统计 + token 页脚）。
+
+- 简介（bio）与 `/info` 同口径走 `GetChat`，用户未与 bot 私聊过时取不到，属正常降级；身份仅作线索，论据仍以聊天记录为准
 
 - **生成时机**：xxl-job 每晚跑批 `UserProfileAnalysisJobHandler` 增量滚动合并；库里无画像时 `/profile` 会现场生成
 - **强制重生开关**：`bot.telegram.profile.regenerate-on-query`（默认 true，每次查询现场全量重新生成；画像格式稳定后置 false，改由跑批更新、查询直接读库）

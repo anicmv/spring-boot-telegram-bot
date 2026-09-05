@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.anicmv.telegrambot.config.BotProperties;
 import com.github.anicmv.telegrambot.entity.ChatMessageEntity;
 import com.github.anicmv.telegrambot.entity.UserProfileEntity;
+import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.model.ProfileAnalysisStats;
 import com.github.anicmv.telegrambot.repository.ChatMessageRepository;
 import com.github.anicmv.telegrambot.repository.UserProfileRepository;
@@ -21,6 +22,7 @@ import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.objects.chat.ChatFullInfo;
 
 /**
  * @author anicmv
@@ -39,17 +41,20 @@ public class ProfileAnalysisService {
     private final AiChatService aiChatService;
     private final BotProperties botProperties;
     private final ObjectMapper objectMapper;
+    private final Messenger messenger;
 
     public ProfileAnalysisService(ChatMessageRepository chatMessageRepository,
                                   UserProfileRepository userProfileRepository,
                                   AiChatService aiChatService,
                                   BotProperties botProperties,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper,
+                                  Messenger messenger) {
         this.chatMessageRepository = chatMessageRepository;
         this.userProfileRepository = userProfileRepository;
         this.aiChatService = aiChatService;
         this.botProperties = botProperties;
         this.objectMapper = objectMapper;
+        this.messenger = messenger;
     }
 
     /**
@@ -143,7 +148,7 @@ public class ProfileAnalysisService {
             return Result.SKIPPED;
         }
 
-        String userPrompt = buildUserPrompt(oldProfile, messages);
+        String userPrompt = buildUserPrompt(oldProfile, messages, resolveIdentity(userId, messages));
         AiChatService.ChatResult chatResult = aiChatService.chatWithUsage(props.getAnalysisPrompt(), userPrompt);
         long tokensUsed = chatResult.totalTokens() == null ? 0L : chatResult.totalTokens();
         ProfileModelOutput output = parse(chatResult.content());
@@ -196,8 +201,9 @@ public class ProfileAnalysisService {
         return oldTokens + tokensUsed;
     }
 
-    private String buildUserPrompt(UserProfileEntity oldProfile, List<ChatMessageEntity> messages) {
+    private String buildUserPrompt(UserProfileEntity oldProfile, List<ChatMessageEntity> messages, UserIdentity identity) {
         StringBuilder builder = new StringBuilder();
+        builder.append("【用户身份信息】\n").append(identity.promptBlock()).append('\n');
         builder.append("【旧画像 JSON】\n");
         builder.append(oldProfile == null ? "无（首次分析）" : oldProfileJson(oldProfile)).append('\n');
         builder.append("\n【新聊天记录】\n");
@@ -211,6 +217,45 @@ public class ProfileAnalysisService {
         }
         builder.append("\n请输出更新后的用户画像 JSON。");
         return builder.toString();
+    }
+
+    /**
+     * 用户身份线索：昵称/用户名取本批最新一条消息，简介走 Telegram API
+     *（与 InfoCommandHandler 同口径：bio 为空回落 description；用户未与 bot 私聊过时取不到）。
+     */
+    private UserIdentity resolveIdentity(Long userId, List<ChatMessageEntity> messages) {
+        ChatMessageEntity latest = messages.get(messages.size() - 1);
+        String bio = null;
+        try {
+            ChatFullInfo info = messenger.getChatFullInfo(userId);
+            if (info != null) {
+                bio = info.getBio() != null && !info.getBio().isBlank() ? info.getBio() : info.getDescription();
+            }
+        } catch (Exception e) {
+            log.warn("获取用户简介失败: userId={}", userId, e);
+        }
+        return new UserIdentity(latest.getUsername(), latest.getNickname(), bio);
+    }
+
+    private record UserIdentity(String username, String nickname, String bio) {
+
+        String promptBlock() {
+            StringBuilder builder = new StringBuilder();
+            appendIfPresent(builder, "username", username == null || username.isBlank() ? null : "@" + username);
+            appendIfPresent(builder, "昵称", nickname);
+            appendIfPresent(builder, "Telegram 简介", bio);
+            if (builder.isEmpty()) {
+                builder.append("无");
+            }
+            builder.append("\n以上为账号资料，可作画像线索酌情融入，不必逐条展开。");
+            return builder.toString();
+        }
+
+        private static void appendIfPresent(StringBuilder builder, String label, String value) {
+            if (value != null && !value.isBlank()) {
+                builder.append(label).append(": ").append(value.trim()).append('\n');
+            }
+        }
     }
 
     private String oldProfileJson(UserProfileEntity profile) {
