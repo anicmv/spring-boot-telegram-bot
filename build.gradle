@@ -29,6 +29,7 @@ ext {
     telegramBotsVersion = '10.2.1'
     hutoolVersion = '5.8.47'
     jsoupVersion = '1.23.2'
+    twelveMonkeysVersion = '3.12.0'
     mybatisPlusVersion = '3.5.17'
     archUnitVersion = '1.5.0'
     xxlJobVersion = '3.4.2'
@@ -60,6 +61,7 @@ dependencies {
     implementation "org.telegram:telegrambots-client:${telegramBotsVersion}"
     implementation "cn.hutool:hutool-all:${hutoolVersion}"
     implementation "org.jsoup:jsoup:${jsoupVersion}"
+    implementation "com.twelvemonkeys.imageio:imageio-webp:${twelveMonkeysVersion}"
     implementation "com.xuxueli:xxl-job-core:${xxlJobVersion}"
 
     runtimeOnly 'com.mysql:mysql-connector-j'

@@ -15,7 +15,16 @@ These additional references should also help you:
 
 * [Configure AOT settings in Build Plugin](https://docs.spring.io/spring-boot/4.1/how-to/aot.html)
 
-## GraalVM Native Support
+### 运行时依赖
+
+默认 buildpack 镜像不会自动安装 `/pack` 所需的外部媒体工具。使用 `/pack` 前，请在宿主机或自定义容器镜像中安装 `ffmpeg`、`lottie-converter`（包含 `lottie_to_gif.sh`）以及其 GIF 依赖 `gifski`、`gunzip`，并确认命令位于 `PATH` 或在 `bot.telegram.pack` 中配置绝对路径。
+
+```bash
+ffmpeg -version
+lottie_to_gif.sh --help
+```
+
+
 
 This project has been configured to let you generate either a lightweight container or a native executable.
 It is also possible to run your tests in a native image.

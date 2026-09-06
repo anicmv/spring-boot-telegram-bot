@@ -28,6 +28,11 @@ bot:
       connect-timeout-seconds: 30
       read-timeout-seconds: 60
       write-timeout-seconds: 60
+    pack:
+      # 静态 WebP 自动转 PNG；TGS/WebM 分别依赖下列外部命令。
+      lottie-converter-command: lottie_to_gif.sh
+      ffmpeg-command: ffmpeg
+      conversion-timeout-seconds: 180
     ai:
       system-prompt: "你是一个 Telegram 中文助手。始终使用中文对话，回答简洁、直接，只保留必要信息。"
       blacklist-user-ids:

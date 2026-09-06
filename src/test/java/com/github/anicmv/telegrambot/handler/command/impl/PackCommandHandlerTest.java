@@ -93,7 +93,7 @@ class PackCommandHandlerTest {
         newHandler(Runnable::run).execute(context(message(stickerMessage("set_a"))));
 
         verify(messenger).sendReplyDocumentByPath(eq(CHAT_ID), eq(CMD_MESSAGE_ID), anyString(),
-                argThat(caption -> caption.contains("2 张下载失败")));
+                argThat(caption -> caption.contains("2 张处理失败")));
     }
 
     @Test

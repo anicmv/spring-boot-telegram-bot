@@ -37,6 +37,22 @@ public class BotProperties {
          * zip 体积上限（字节），超出截断；需小于 Bot API 50MB 上传限制。
          */
         private long maxZipBytes = 49L * 1024 * 1024;
+
+
+        /**
+         * TGS 转 GIF 命令，默认从 PATH 查找 lottie-converter 的 lottie_to_gif.sh。
+         */
+        private String lottieConverterCommand = "lottie_to_gif.sh";
+
+        /**
+         * WebM 转 GIF 命令，默认从 PATH 查找 ffmpeg。
+         */
+        private String ffmpegCommand = "ffmpeg";
+
+        /**
+         * 单张贴纸转码超时，单位秒。
+         */
+        private long conversionTimeoutSeconds = 180L;
     }
 
     @Setter

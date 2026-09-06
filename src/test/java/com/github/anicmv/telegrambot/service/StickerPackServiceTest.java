@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,6 +37,9 @@ class StickerPackServiceTest {
 
     @Mock
     private TelegramClient telegramClient;
+
+    @Mock
+    private StickerMediaConverter mediaConverter;
 
     private BotProperties properties;
 
@@ -48,6 +52,7 @@ class StickerPackServiceTest {
     void shouldPackAllFormatsWithOrderedEntries() throws Exception {
         stubSet(sticker("f1", false, false), sticker("f2", true, false), sticker("f3", false, true));
         stubDownloads(bytes(1), bytes(2), bytes(3));
+        stubConvertedFiles();
 
         StickerPackService.PackedStickerSet result = newService().pack("test_set", null);
 
@@ -59,15 +64,16 @@ class StickerPackServiceTest {
         assertFalse(result.truncated());
         try (ZipFile zip = new ZipFile(result.zipPath().toFile())) {
             assertEquals(3, zip.size());
-            assertEntry(zip, "001.webp", bytes(1));
-            assertEntry(zip, "002.tgs", bytes(2));
-            assertEntry(zip, "003.webm", bytes(3));
+            assertEntry(zip, "001.png", bytes(9, 8, 7));
+            assertEntry(zip, "002.gif", bytes(9, 8, 7));
+            assertEntry(zip, "003.gif", bytes(9, 8, 7));
         }
     }
 
     @Test
     void shouldSkipFailedStickerAndKeepSequentialNames() throws Exception {
         stubSet(sticker("f1", false, false), sticker("f2", false, false), sticker("f3", false, false));
+        stubConvertedFiles();
         org.telegram.telegrambots.meta.api.objects.File file = metaFile();
         when(telegramClient.execute(any(GetFile.class)))
                 .thenReturn(file)
@@ -84,8 +90,8 @@ class StickerPackServiceTest {
         assertEquals(1, result.skippedCount());
         try (ZipFile zip = new ZipFile(result.zipPath().toFile())) {
             assertEquals(2, zip.size());
-            assertEntry(zip, "001.webp", bytes(1));
-            assertEntry(zip, "002.webp", bytes(3));
+            assertEntry(zip, "001.png", bytes(9, 8, 7));
+            assertEntry(zip, "002.png", bytes(9, 8, 7));
         }
     }
 
@@ -121,9 +127,10 @@ class StickerPackServiceTest {
 
     @Test
     void shouldTruncateWhenZipExceedsMaxBytes() throws Exception {
-        properties.getPack().setMaxZipBytes(1);
+        properties.getPack().setMaxZipBytes(150);
         stubSet(sticker("f1", false, false), sticker("f2", false, false));
         stubDownloads(bytes(1, 2, 3), bytes(4));
+        stubConvertedFiles();
 
         StickerPackService.PackedStickerSet result = newService().pack("test_set", null);
 
@@ -143,7 +150,19 @@ class StickerPackServiceTest {
     }
 
     private StickerPackService newService() {
-        return new StickerPackService(telegramClient, properties);
+        return new StickerPackService(telegramClient, properties, mediaConverter);
+    }
+
+    private void stubConvertedFiles() throws Exception {
+        doAnswer(invocation -> {
+            Sticker sticker = invocation.getArgument(0);
+            Path workDirectory = invocation.getArgument(2);
+            String extension = Boolean.TRUE.equals(sticker.getIsAnimated()) || Boolean.TRUE.equals(sticker.getIsVideo())
+                    ? ".gif" : ".png";
+            Path output = Files.createTempFile(workDirectory, "converted-", extension);
+            Files.write(output, new byte[]{9, 8, 7});
+            return new StickerMediaConverter.ConversionResult(output, extension);
+        }).when(mediaConverter).convert(any(), any(), any());
     }
 
     private Sticker sticker(String fileId, boolean animated, boolean video) {

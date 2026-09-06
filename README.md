@@ -11,7 +11,8 @@
 - Spring AI `2.0.1`（OpenAI 兼容协议，对接百炼/DeepSeek，用于 `/ai` 对话与画像生成）
 - MyBatis-Plus + MySQL（消息落库、画像、白名单；`schema-mysql.sql` 启动自动建表）
 - xxl-job（画像每晚跑批调度）
-- WebClient、Jsoup（编程语言榜抓取）、Hutool、yt-dlp（YouTube / Instagram / 小红书 视频下载）
+- WebClient、Jsoup（编程语言榜抓取）、Hutool、TwelveMonkeys WebP ImageIO、yt-dlp（YouTube / Instagram / 小红书 视频下载）
+- `/pack` 转换依赖：`lottie-converter` 的 `lottie_to_gif.sh` + `gifski`（TGS→GIF），系统 `ffmpeg`（WebM→GIF）
 - Gradle（Groovy DSL）
 
 ## 已实现能力
@@ -27,7 +28,7 @@
 - `/douyin`：下载抖音视频（三级解析兜底策略链）
 - `/video`：下载 YouTube / Instagram / 小红书 视频
 - `/searchimg`：以图搜图（SauceNAO）
-- `/pack`：回复一条贴纸消息，打包其所在贴纸包为 ZIP
+- `/pack`：回复一条贴纸消息，下载所在贴纸包并将静态 WebP 转 PNG、TGS 转 GIF、WebM 转 GIF 后打包为 ZIP
 - `/avatars`：获取用户全部历史头像（/avatars 取自己的，回复消息取对方的）
 - `/info`：查看信息（回复消息查用户，群内直发查群/频道简介）
 - `/matchmaker_register`：回复某人并注册到姻缘用户池
@@ -119,17 +120,28 @@ export TELEGRAM_CHANNEL_ID="-100xxxxxxxxxx"
 export DEEPSEEK_API_KEY="LLM api-key"   # 或百炼 DASHSCOPE_API_KEY，按 profile 配置 base-url/model
 ```
 
-### 2. 如果之前用过 webhook，先删除
+### 2. 安装媒体转换依赖
+
+`/pack` 会将静态 WebP 转为 PNG、TGS 转为 GIF、WebM 转为 GIF。Gradle 会引入 TwelveMonkeys 的 WebP ImageIO 插件；运行环境还必须在 `PATH` 中提供：
+
+```bash
+ffmpeg -version
+lottie_to_gif.sh --help
+```
+
+`lottie_to_gif.sh` 来自 [ed-asriyan/lottie-converter](https://github.com/ed-asriyan/lottie-converter)，其 GIF 输出还依赖 `gifski` 和 `gunzip`。可通过 `bot.telegram.pack.lottie-converter-command`、`ffmpeg-command`、`conversion-timeout-seconds` 配置命令和超时。缺少任一外部工具时，对应贴纸会跳过，其余贴纸仍会继续打包。
+
+### 3. 如果之前用过 webhook，先删除
 
 ```bash
 curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/deleteWebhook"
 ```
 
-### 3. 配置
+### 4. 配置
 
 复制 `application-example.yaml` 为对应 profile 配置：数据源、`bot.telegram.*`、`spring.ai.*`。画像功能需配置 MySQL（自动建表）、`profile.record-enabled`、`profile.record-group-ids`、`profile.admin-user-ids`（务必配置，否则无人能审批）。
 
-### 4. 启动
+### 5. 启动
 
 ```bash
 ./gradlew bootRun
@@ -137,7 +149,7 @@ curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/deleteWebhook"
 
 项目已在 Gradle `bootRun` 任务中固化 `--enable-native-access=ALL-UNNAMED`，避免 JDK 25 + Netty 的 native access 警告。
 
-### 5. 基础验证
+### 6. 基础验证
 
 1. 给 Bot 发 `/start`，点 `Ping` 按钮验证回调
 2. 发 `/kfc`、`/maf`、`/info` 等验证命令；输入 `@你的bot用户名` 测试 inline

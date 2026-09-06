@@ -97,7 +97,7 @@ public class PackCommandHandler implements BotCommandHandler {
                 .append("</b>\n▎已收录 ")
                 .append(result.packedCount()).append('/').append(result.totalCount()).append(" 张");
         if (result.skippedCount() > 0) {
-            caption.append("，").append(result.skippedCount()).append(" 张下载失败");
+            caption.append("，").append(result.skippedCount()).append(" 张处理失败");
         }
         if (result.truncated()) {
             caption.append("\n⚠️ 达到体积上限，已截断");

@@ -4,14 +4,16 @@ import com.github.anicmv.telegrambot.config.BotProperties;
 import com.github.anicmv.telegrambot.utils.BotUtil;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.stickers.GetStickerSet;
@@ -23,8 +25,8 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 /**
  * @author anicmv
  * @date 2026/9/5
- * @description 贴纸包打包服务：拉取整个贴纸包，按原格式（webp/tgs/webm）逐张下载写入 zip。
- * 纯同步服务；异步编排、占位消息与发送由调用方负责。单张下载失败跳过计数，
+ * @description 贴纸包打包服务：下载贴纸并转换为 png/gif 后逐张写入 zip。
+ * 纯同步服务；异步编排、占位消息与发送由调用方负责。单张下载或转换失败跳过计数，
  * zip 超过体积上限截断；失败路径自清临时目录，成功才把 zipPath 交给调用方清理。
  */
 @Log4j2
@@ -33,15 +35,19 @@ public class StickerPackService {
 
     private final TelegramClient telegramClient;
     private final BotProperties properties;
+    private final StickerMediaConverter mediaConverter;
 
-    public StickerPackService(TelegramClient telegramClient, BotProperties properties) {
+    @Autowired
+    public StickerPackService(TelegramClient telegramClient, BotProperties properties,
+                              StickerMediaConverter mediaConverter) {
         this.telegramClient = telegramClient;
         this.properties = properties;
+        this.mediaConverter = mediaConverter;
     }
 
     /**
      * 打包结果。totalCount 为实际尝试的贴纸数（受 maxStickers 限制），
-     * packedCount 为成功入包数，skippedCount 为下载失败跳过数，truncated 为体积截断标记。
+     * packedCount 为成功入包数，skippedCount 为下载或转换失败数，truncated 为体积截断标记。
      */
     public record PackedStickerSet(String name, String title, int totalCount, int packedCount,
                                    int skippedCount, boolean truncated, Path zipPath) {
@@ -50,50 +56,59 @@ public class StickerPackService {
     /**
      * 打包指定贴纸包。progressCallback 每处理一张回调已处理数（可为 null）。
      *
-     * @throws IllegalStateException 贴纸包不存在/为空、全部下载失败、IO 失败
+     * @throws IllegalStateException 贴纸包不存在/为空、全部处理失败、IO 失败
      */
     public PackedStickerSet pack(String setName, IntConsumer progressCallback) {
         StickerSet stickerSet = fetchStickerSet(setName);
         List<Sticker> stickers = stickerSet.getStickers();
         BotProperties.Pack packProps = properties.getPack();
-        List<Sticker> targets = stickers.size() > packProps.getMaxStickers()
-                ? stickers.subList(0, packProps.getMaxStickers()) : stickers;
+        int maxStickers = Math.max(0, packProps.getMaxStickers());
+        List<Sticker> targets = stickers.size() > maxStickers
+                ? stickers.subList(0, maxStickers) : stickers;
 
         Path dir = null;
         try {
             dir = Files.createTempDirectory("sticker-pack-");
             Path zipPath = dir.resolve(setName + ".zip");
             boolean truncated = false;
-            int packed = 0;
             int skipped = 0;
-            int seq = 0;
-            CountingOutputStream counting = new CountingOutputStream(Files.newOutputStream(zipPath));
-            try (ZipOutputStream zip = new ZipOutputStream(counting)) {
-                for (int i = 0; i < targets.size(); i++) {
-                    Sticker sticker = targets.get(i);
-                    byte[] data;
-                    try {
-                        data = downloadStickerBytes(sticker);
-                    } catch (Exception e) {
-                        skipped++;
-                        log.warn("贴纸下载失败，跳过: setName={}, fileId={}", setName, sticker.getFileId(), e);
-                        continue;
+            List<PackEntry> entries = new ArrayList<>();
+
+            for (int i = 0; i < targets.size(); i++) {
+                Sticker sticker = targets.get(i);
+                try {
+                    byte[] sourceBytes = downloadStickerBytes(sticker);
+                    Path source = dir.resolve(String.format("source-%03d%s", i + 1, extensionOf(sticker)));
+                    Files.write(source, sourceBytes);
+                    StickerMediaConverter.ConversionResult converted =
+                            mediaConverter.convert(sticker, source, dir);
+                    Path convertedFile = dir.resolve(String.format("converted-%03d%s", i + 1,
+                            converted.extension()));
+                    Files.copy(converted.file(), convertedFile, StandardCopyOption.REPLACE_EXISTING);
+
+                    PackEntry candidate = new PackEntry(
+                            String.format("%03d%s", entries.size() + 1, converted.extension()), convertedFile);
+                    List<PackEntry> candidateEntries = new ArrayList<>(entries);
+                    candidateEntries.add(candidate);
+                    writeZip(candidateEntries, zipPath);
+                    if (Files.size(zipPath) > packProps.getMaxZipBytes()) {
+                        writeZip(entries, zipPath);
+                        truncated = true;
+                        log.warn("zip 达到体积上限，截断: setName={}, bytes={}", setName, Files.size(zipPath));
+                        break;
                     }
-                    seq++;
-                    zip.putNextEntry(new ZipEntry(String.format("%03d%s", seq, extensionOf(sticker))));
-                    zip.write(data);
-                    zip.closeEntry();
-                    packed++;
+                    entries.add(candidate);
+                } catch (Exception e) {
+                    skipped++;
+                    log.warn("贴纸处理失败，跳过: setName={}, fileId={}", setName, sticker.getFileId(), e);
+                } finally {
                     if (progressCallback != null) {
                         progressCallback.accept(i + 1);
                     }
-                    if (counting.count() > packProps.getMaxZipBytes()) {
-                        truncated = true;
-                        log.warn("zip 超过体积上限，截断: setName={}, bytes={}", setName, counting.count());
-                        break;
-                    }
                 }
             }
+
+            int packed = entries.size();
             if (packed == 0) {
                 throw new IllegalStateException("贴纸全部下载失败");
             }
@@ -123,9 +138,29 @@ public class StickerPackService {
     private byte[] downloadStickerBytes(Sticker sticker) throws TelegramApiException, IOException {
         org.telegram.telegrambots.meta.api.objects.File file =
                 telegramClient.execute(new GetFile(sticker.getFileId()));
-        try (InputStream in = telegramClient.downloadFileAsStream(file)) {
+        if (file == null) {
+            throw new IOException("Telegram 文件不存在");
+        }
+        InputStream stream = telegramClient.downloadFileAsStream(file);
+        if (stream == null) {
+            throw new IOException("Telegram 文件流为空");
+        }
+        try (InputStream in = stream) {
             return in.readAllBytes();
         }
+    }
+
+    private void writeZip(List<PackEntry> entries, Path zipPath) throws IOException {
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(zipPath))) {
+            for (PackEntry entry : entries) {
+                zip.putNextEntry(new ZipEntry(entry.name()));
+                Files.copy(entry.file(), zip);
+                zip.closeEntry();
+            }
+        }
+    }
+
+    private record PackEntry(String name, Path file) {
     }
 
     static String extensionOf(Sticker sticker) {
@@ -136,44 +171,5 @@ public class StickerPackService {
             return ".webm";
         }
         return ".webp";
-    }
-
-    /**
-     * 累加写出字节数的计数流，用于 zip 体积守卫。
-     */
-    private static final class CountingOutputStream extends OutputStream {
-
-        private final OutputStream delegate;
-        private long count;
-
-        private CountingOutputStream(OutputStream delegate) {
-            this.delegate = delegate;
-        }
-
-        @Override
-        public void write(int b) throws IOException {
-            delegate.write(b);
-            count++;
-        }
-
-        @Override
-        public void write(byte[] b, int off, int len) throws IOException {
-            delegate.write(b, off, len);
-            count += len;
-        }
-
-        @Override
-        public void flush() throws IOException {
-            delegate.flush();
-        }
-
-        @Override
-        public void close() throws IOException {
-            delegate.close();
-        }
-
-        private long count() {
-            return count;
-        }
     }
 }
