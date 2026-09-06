@@ -10,8 +10,10 @@ import com.github.anicmv.telegrambot.service.AnimeFaceService;
 import com.github.anicmv.telegrambot.service.AnimeFaceService.SearchResponse;
 import com.github.anicmv.telegrambot.service.StickerImageService;
 import com.github.anicmv.telegrambot.utils.BotUtil;
-import java.util.concurrent.RejectedExecutionException;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -50,29 +52,48 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
         Message command = context == null ? null : context.message();
         Message replied = command == null ? null : command.getReplyToMessage();
         Sticker sticker = replied != null && replied.hasSticker() ? replied.getSticker() : null;
-        if (sticker == null || sticker.getFileId() == null || sticker.getFileId().isBlank()) {
-            Replier.of(context, messenger).text("请回复一条贴纸消息后发送 /aniface");
+        List<org.telegram.telegrambots.meta.api.objects.photo.PhotoSize> photos =
+                replied != null && replied.hasPhoto() ? replied.getPhoto() : List.of();
+        String photoFileId = photos == null ? null : photos.stream()
+                .filter(photo -> photo != null && photo.getFileId() != null && !photo.getFileId().isBlank())
+                .max(Comparator.comparingLong(this::photoArea))
+                .map(org.telegram.telegrambots.meta.api.objects.photo.PhotoSize::getFileId)
+                .orElse(null);
+        boolean hasSticker = sticker != null && sticker.getFileId() != null && !sticker.getFileId().isBlank();
+        boolean hasPhoto = photoFileId != null;
+        if (!hasSticker && !hasPhoto) {
+            Replier.of(context, messenger).text("请回复一张图片或贴纸后发送 /aniface");
             return;
         }
+        String fileId = hasSticker ? sticker.getFileId() : photoFileId;
         Replier replier = Replier.of(context, messenger);
         Integer progressId = replier.htmlAndReturnId("<b>🔍 正在识别动漫/Gal 人物...</b>");
         try {
-            botBackgroundExecutor.execute(() -> searchAndReply(context, sticker, progressId));
+            botBackgroundExecutor.execute(() -> searchAndReply(context, sticker, fileId, progressId));
         } catch (RejectedExecutionException e) {
             log.warn("aniface 任务被拒绝: chatId={}", context == null ? null : context.chatId());
             replyOrEdit(replier, progressId, "<b>❌ 当前识图任务较多，请稍后重试</b>");
         }
     }
 
-    private void searchAndReply(BotContext context, Sticker sticker, Integer progressId) {
+    private long photoArea(org.telegram.telegrambots.meta.api.objects.photo.PhotoSize photo) {
+        if (photo == null || photo.getWidth() <= 0 || photo.getHeight() <= 0) {
+            return 0L;
+        }
+        return (long) photo.getWidth() * photo.getHeight();
+    }
+
+    private void searchAndReply(BotContext context, Sticker sticker, String fileId, Integer progressId) {
         Replier replier = Replier.of(context, messenger);
         try {
-            byte[] imageBytes = messenger.downloadFileBytes(sticker.getFileId());
+            byte[] imageBytes = messenger.downloadFileBytes(fileId);
             if (imageBytes == null || imageBytes.length == 0) {
                 temporaryError(replier, context, progressId);
                 return;
             }
-            byte[] normalizedImage = stickerImageService.normalize(sticker, imageBytes);
+            byte[] normalizedImage = sticker == null
+                    ? stickerImageService.normalizePhoto(imageBytes)
+                    : stickerImageService.normalize(sticker, imageBytes);
             SearchResponse response = animeFaceService.search(normalizedImage);
             if (!response.success() || response.persons().isEmpty()) {
                 temporaryError(replier, context, progressId);
@@ -81,7 +102,7 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
             replyOrEdit(replier, progressId, animeFaceService.formatHtml(response));
         } catch (Exception e) {
             log.warn("aniface 识别失败: chatId={}, fileId={}",
-                    context == null ? null : context.chatId(), sticker.getFileId(), e);
+                    context == null ? null : context.chatId(), fileId, e);
             temporaryError(replier, context, progressId);
         }
     }

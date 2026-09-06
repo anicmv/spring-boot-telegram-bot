@@ -30,9 +30,20 @@ public class StickerImageService {
         this.mediaConverter = mediaConverter;
     }
 
+    public byte[] normalizePhoto(byte[] sourceBytes) {
+        return normalizeImage(sourceBytes, null, false);
+    }
+
     public byte[] normalize(Sticker sticker, byte[] sourceBytes) {
-        if (sticker == null || sourceBytes == null || sourceBytes.length == 0) {
-            throw new IllegalStateException("贴纸图片内容为空");
+        if (sticker == null) {
+            throw new IllegalStateException("贴纸信息为空");
+        }
+        return normalizeImage(sourceBytes, sticker, true);
+    }
+
+    private byte[] normalizeImage(byte[] sourceBytes, Sticker sticker, boolean convertSticker) {
+        if (sourceBytes == null || sourceBytes.length == 0) {
+            throw new IllegalStateException("图片内容为空");
         }
         if (sourceBytes.length > MAX_SOURCE_BYTES) {
             throw new IllegalStateException("贴纸图片超过大小限制");
@@ -41,15 +52,21 @@ public class StickerImageService {
         Path directory = null;
         try {
             directory = Files.createTempDirectory("aniface-");
-            Path source = directory.resolve("source" + StickerPackService.extensionOf(sticker));
+            Path source = directory.resolve(convertSticker
+                    ? "source" + StickerPackService.extensionOf(sticker)
+                    : "source.image");
             Files.write(source, sourceBytes);
-            StickerMediaConverter.ConversionResult converted = mediaConverter.convert(sticker, source, directory);
-            if (converted == null || converted.file() == null || !Files.isRegularFile(converted.file())
-                    || Files.size(converted.file()) == 0) {
-                throw new IOException("贴纸转换没有生成图片");
+            Path convertedFile = source;
+            if (convertSticker) {
+                StickerMediaConverter.ConversionResult converted = mediaConverter.convert(sticker, source, directory);
+                if (converted == null || converted.file() == null || !Files.isRegularFile(converted.file())
+                        || Files.size(converted.file()) == 0) {
+                    throw new IOException("贴纸转换没有生成图片");
+                }
+                convertedFile = converted.file();
             }
 
-            BufferedImage image = ImageIO.read(converted.file().toFile());
+            BufferedImage image = ImageIO.read(convertedFile.toFile());
             if (image == null) {
                 throw new IOException("转换结果不是有效图片");
             }

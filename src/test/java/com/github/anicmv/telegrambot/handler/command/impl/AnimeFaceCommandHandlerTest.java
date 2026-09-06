@@ -71,6 +71,7 @@ class AnimeFaceCommandHandlerTest {
         Sticker sticker = sticker("sticker-file");
         stubProgress(messenger);
         when(messenger.downloadFileBytes("sticker-file")).thenReturn(new byte[]{1});
+        when(imageService.normalize(sticker, new byte[]{1})).thenReturn(new byte[]{2});
         when(service.search(new byte[]{2})).thenThrow(new RuntimeException("offline"));
 
         newHandler(messenger, service, Runnable::run, scheduler)
