@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.log4j.Log4j2;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -122,6 +123,11 @@ public class AnimeFaceService {
     }
 
     public String formatHtml(SearchResponse response) {
+        return formatHtml(response, Map.of());
+    }
+
+    public String formatHtml(SearchResponse response, Map<String, String> workTranslations) {
+        Map<String, String> translations = workTranslations == null ? Map.of() : workTranslations;
         StringBuilder result = new StringBuilder("<b>🎭 动漫/Gal 人物识别</b>\n");
         if (response.ai()) {
             result.append("⚠️ 疑似 AI 生成图片\n");
@@ -132,8 +138,11 @@ public class AnimeFaceService {
                 result.append("⚠️ 候选结果仅供参考\n");
             }
             for (Candidate candidate : person.candidates()) {
+                String translatedWork = translations.get(normalizeWork(candidate.work()));
+                String work = translatedWork == null || translatedWork.isBlank()
+                        ? candidate.work() : translatedWork + "（" + candidate.work() + "）";
                 result.append("• ").append(escape(candidate.character()))
-                        .append(" ｜ ").append(escape(candidate.work())).append('\n');
+                        .append(" ｜ ").append(escape(work)).append('\n');
             }
         }
         if (result.length() > MAX_RESULT_LENGTH) {
@@ -157,6 +166,10 @@ public class AnimeFaceService {
 
     private String escape(String text) {
         return com.github.anicmv.telegrambot.utils.BotUtil.escapeHtml(text);
+    }
+
+    static String normalizeWork(String value) {
+        return BangumiWorkTranslationService.normalizeWork(value);
     }
 
     private String abbreviate(String text) {

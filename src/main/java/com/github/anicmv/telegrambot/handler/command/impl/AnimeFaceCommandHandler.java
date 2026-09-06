@@ -8,6 +8,7 @@ import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.service.AnimeFaceService;
 import com.github.anicmv.telegrambot.service.AnimeFaceService.SearchResponse;
+import com.github.anicmv.telegrambot.service.BangumiWorkTranslationService;
 import com.github.anicmv.telegrambot.service.StickerImageService;
 import com.github.anicmv.telegrambot.utils.BotUtil;
 import java.time.Instant;
@@ -33,16 +34,19 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
     private final Messenger messenger;
     private final AnimeFaceService animeFaceService;
     private final StickerImageService stickerImageService;
+    private final BangumiWorkTranslationService bangumiWorkTranslationService;
     private final TaskExecutor botBackgroundExecutor;
     private final TaskScheduler botScheduler;
 
     public AnimeFaceCommandHandler(Messenger messenger, AnimeFaceService animeFaceService,
                                    StickerImageService stickerImageService,
+                                   BangumiWorkTranslationService bangumiWorkTranslationService,
                                    @Qualifier("botBackgroundExecutor") TaskExecutor botBackgroundExecutor,
                                    @Qualifier("botScheduler") TaskScheduler botScheduler) {
         this.messenger = messenger;
         this.animeFaceService = animeFaceService;
         this.stickerImageService = stickerImageService;
+        this.bangumiWorkTranslationService = bangumiWorkTranslationService;
         this.botBackgroundExecutor = botBackgroundExecutor;
         this.botScheduler = botScheduler;
     }
@@ -100,6 +104,7 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
                 return;
             }
             replyOrEdit(replier, progressId, animeFaceService.formatHtml(response));
+            translateAsync(replier, response, progressId);
         } catch (Exception e) {
             log.warn("aniface 识别失败: chatId={}, fileId={}",
                     context == null ? null : context.chatId(), fileId, e);
@@ -107,6 +112,22 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
         }
     }
 
+    private void translateAsync(Replier replier, SearchResponse response, Integer progressId) {
+        try {
+            bangumiWorkTranslationService.translateAsync(response).whenComplete((translations, error) -> {
+                if (error != null || translations == null || translations.isEmpty()) {
+                    return;
+                }
+                try {
+                    replyOrEdit(replier, progressId, animeFaceService.formatHtml(response, translations));
+                } catch (RuntimeException e) {
+                    log.warn("Bangumi 中文名更新失败", e);
+                }
+            });
+        } catch (RuntimeException e) {
+            log.warn("提交 Bangumi 翻译任务失败", e);
+        }
+    }
     private void temporaryError(Replier replier, BotContext context, Integer progressId) {
         String error = "<b>❌ 识别服务暂时不可用</b>";
         replyOrEdit(replier, progressId, error);
@@ -122,6 +143,7 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
                     context.chatId(), progressId, e);
         }
     }
+
 
     private void replyOrEdit(Replier replier, Integer messageId, String html) {
         if (messageId == null) {

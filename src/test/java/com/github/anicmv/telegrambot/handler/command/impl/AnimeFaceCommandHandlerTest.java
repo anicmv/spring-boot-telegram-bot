@@ -7,6 +7,7 @@ import com.github.anicmv.telegrambot.service.AnimeFaceService;
 import com.github.anicmv.telegrambot.service.AnimeFaceService.Candidate;
 import com.github.anicmv.telegrambot.service.AnimeFaceService.PersonResult;
 import com.github.anicmv.telegrambot.service.AnimeFaceService.SearchResponse;
+import com.github.anicmv.telegrambot.service.BangumiWorkTranslationService;
 import com.github.anicmv.telegrambot.service.StickerImageService;
 import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
@@ -122,7 +123,10 @@ class AnimeFaceCommandHandlerTest {
                                                StickerImageService imageService,
                                                org.springframework.core.task.TaskExecutor executor,
                                                TaskScheduler scheduler) {
-        return new AnimeFaceCommandHandler(messenger, service, imageService, executor, scheduler);
+        BangumiWorkTranslationService translationService = mock(BangumiWorkTranslationService.class);
+        when(translationService.translateAsync(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(java.util.Map.of()));
+        return new AnimeFaceCommandHandler(messenger, service, imageService, translationService, executor, scheduler);
     }
 
     private void stubProgress(Messenger messenger) {
