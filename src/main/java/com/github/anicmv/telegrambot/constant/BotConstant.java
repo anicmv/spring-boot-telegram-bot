@@ -37,6 +37,7 @@ public final class BotConstant {
     public static final String CMD_INFO = "/info";
     public static final String CMD_ANIME = "/anime";
     public static final String CMD_HOLIDAY = "/holiday";
+    public static final String CMD_ANIFACE = "/aniface";
 
     public static final String CALLBACK_ACTION_PING = "PING";
     /** /profile 白名单授权按钮，payload 形如 Y:<userId> / N:<userId>。 */

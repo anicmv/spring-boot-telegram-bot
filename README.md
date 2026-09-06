@@ -31,6 +31,7 @@
 - `/pack`：回复一条贴纸消息，下载所在贴纸包并将静态 WebP 转 PNG、TGS 转 GIF、WebM 转 GIF 后打包为 ZIP
 - `/sticker`：回复一条贴纸消息，只下载并转换当前这一张（WebP→PNG、TGS/WebM→GIF）后作为文件发送
 - `/holiday`：显示今天日期、距离下一个中国法定节假日的天数，并附一条一言
+- `/aniface`：回复一条贴纸，识别其中的动漫/Gal 人物
 - `/avatars`：获取用户全部历史头像（/avatars 取自己的，回复消息取对方的）
 - `/info`：查看信息（回复消息查用户，群内直发查群/频道简介）
 - `/matchmaker_register`：回复某人并注册到姻缘用户池
