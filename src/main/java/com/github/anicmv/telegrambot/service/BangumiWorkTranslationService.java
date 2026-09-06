@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import lombok.extern.log4j.Log4j2;
@@ -38,6 +39,7 @@ public class BangumiWorkTranslationService implements AutoCloseable {
         thread.setDaemon(true);
         return thread;
     });
+    private final Map<String, String> cache = new ConcurrentHashMap<>();
 
     @Autowired
     public BangumiWorkTranslationService(ObjectMapper objectMapper, OkHttpClient httpClient) {
@@ -57,7 +59,7 @@ public class BangumiWorkTranslationService implements AutoCloseable {
                 .forEach(key -> translations.put(key, null));
 
         return CompletableFuture.supplyAsync(() -> {
-            translations.replaceAll((work, ignored) -> queryChineseName(work));
+            translations.replaceAll((work, ignored) -> cache.computeIfAbsent(work, this::queryChineseName));
             return translations.entrySet().stream()
                     .filter(entry -> entry.getValue() != null && !entry.getValue().isBlank())
                     .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
