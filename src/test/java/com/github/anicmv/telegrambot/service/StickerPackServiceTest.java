@@ -1,6 +1,7 @@
 package com.github.anicmv.telegrambot.service;
 
 import com.github.anicmv.telegrambot.config.BotProperties;
+import com.github.anicmv.telegrambot.utils.BotUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -143,6 +146,55 @@ class StickerPackServiceTest {
     }
 
     @Test
+    void shouldPrepareOnlyOneStickerWithoutFetchingSet() throws Exception {
+        Sticker sticker = sticker("single", false, false);
+        stubDownloads(bytes(1, 2, 3));
+        stubConvertedFiles();
+
+        StickerPackService.PreparedSticker result = newService().prepareSingle(sticker);
+
+        assertEquals(".png", result.extension());
+        assertTrue(Files.isRegularFile(result.file()));
+        verify(telegramClient).execute(any(GetFile.class));
+        verify(telegramClient).downloadFileAsStream(any(org.telegram.telegrambots.meta.api.objects.File.class));
+        verify(telegramClient, never()).execute(any(GetStickerSet.class));
+        verify(mediaConverter).convert(any(Sticker.class), any(Path.class), any(Path.class));
+        BotUtil.deleteDirectoryQuietly(result.file().getParent());
+    }
+
+    @Test
+    void shouldPrepareAnimatedStickerWithConvertedExtension() throws Exception {
+        Sticker sticker = sticker("single", true, false);
+        stubDownloads(bytes(1));
+        stubConvertedFiles();
+
+        StickerPackService.PreparedSticker result = newService().prepareSingle(sticker);
+
+        assertEquals(".gif", result.extension());
+        assertTrue(Files.isRegularFile(result.file()));
+        verify(telegramClient, never()).execute(any(GetStickerSet.class));
+        BotUtil.deleteDirectoryQuietly(result.file().getParent());
+    }
+
+    @Test
+    void prepareSingleShouldCleanupWhenDownloadFails() throws Exception {
+        when(telegramClient.execute(any(GetFile.class))).thenThrow(new TelegramApiException("boom"));
+        List<Path> before = listSingleDirs();
+
+        assertThrows(IllegalStateException.class, () -> newService().prepareSingle(sticker("single", false, false)));
+
+        assertEquals(before, listSingleDirs());
+        verify(telegramClient, never()).execute(any(GetStickerSet.class));
+    }
+
+    @Test
+    void prepareSingleShouldRejectStickerWithoutFileId() {
+        Sticker sticker = sticker(null, false, false);
+
+        assertThrows(IllegalStateException.class, () -> newService().prepareSingle(sticker));
+    }
+
+    @Test
     void extensionOfShouldMapFormats() {
         assertEquals(".webp", StickerPackService.extensionOf(sticker("f", false, false)));
         assertEquals(".tgs", StickerPackService.extensionOf(sticker("f", true, false)));
@@ -214,6 +266,13 @@ class StickerPackServiceTest {
         Path tmp = Path.of(System.getProperty("java.io.tmpdir"));
         try (Stream<Path> paths = Files.list(tmp)) {
             return paths.filter(p -> p.getFileName().toString().startsWith("sticker-pack-")).sorted().toList();
+        }
+    }
+
+    private List<Path> listSingleDirs() throws IOException {
+        Path tmp = Path.of(System.getProperty("java.io.tmpdir"));
+        try (Stream<Path> paths = Files.list(tmp)) {
+            return paths.filter(p -> p.getFileName().toString().startsWith("sticker-single-")).sorted().toList();
         }
     }
 }

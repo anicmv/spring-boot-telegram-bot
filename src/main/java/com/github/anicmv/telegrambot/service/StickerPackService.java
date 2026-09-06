@@ -54,6 +54,53 @@ public class StickerPackService {
     }
 
     /**
+     * 单张贴纸转换结果。成功返回后，临时目录的清理职责由调用方负责。
+     */
+    public record PreparedSticker(Path file, String extension) {
+    }
+
+    /**
+     * 下载并转换单张贴纸，不会读取贴纸包信息。
+     *
+     * @throws IllegalStateException 贴纸无效、下载失败或转换失败
+     */
+    public PreparedSticker prepareSingle(Sticker sticker) {
+        if (sticker == null || sticker.getFileId() == null || sticker.getFileId().isBlank()) {
+            throw new IllegalStateException("贴纸文件不存在");
+        }
+
+        Path dir = null;
+        try {
+            dir = Files.createTempDirectory("sticker-single-");
+            Path source = dir.resolve("source" + extensionOf(sticker));
+            byte[] sourceBytes = downloadStickerBytes(sticker);
+            if (sourceBytes.length == 0) {
+                throw new IOException("Telegram 文件为空");
+            }
+            Files.write(source, sourceBytes);
+
+            StickerMediaConverter.ConversionResult converted = mediaConverter.convert(sticker, source, dir);
+            if (converted == null || converted.file() == null || converted.extension() == null
+                    || converted.extension().isBlank() || !Files.isRegularFile(converted.file())
+                    || Files.size(converted.file()) == 0) {
+                throw new IOException("贴纸转换未生成有效文件");
+            }
+            String extension = converted.extension().startsWith(".")
+                    ? converted.extension() : "." + converted.extension();
+            Path output = dir.resolve("sticker" + extension);
+            Files.copy(converted.file(), output, StandardCopyOption.REPLACE_EXISTING);
+            dir = null;
+            return new PreparedSticker(output, extension);
+        } catch (TelegramApiException | IOException e) {
+            throw new IllegalStateException("贴纸下载或转换失败: " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new IllegalStateException("贴纸下载或转换失败", e);
+        } finally {
+            BotUtil.deleteDirectoryQuietly(dir);
+        }
+    }
+
+    /**
      * 打包指定贴纸包。progressCallback 每处理一张回调已处理数（可为 null）。
      *
      * @throws IllegalStateException 贴纸包不存在/为空、全部处理失败、IO 失败
