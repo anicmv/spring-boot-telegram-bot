@@ -54,7 +54,7 @@ public class HolidayCommandHandler implements BotCommandHandler {
             if (result.nextHoliday() == null) {
                 message.append("下一个法定节假日：暂时无法获取\n");
             } else {
-                message.append("下一个法定节假日：")
+                message.append("距离：")
                         .append(result.nextHoliday().name()).append('（')
                         .append(result.nextHoliday().date().format(DATE_FORMATTER)).append("）\n")
                         .append("还有 ").append(result.daysUntil()).append(" 天\n");
