@@ -8,11 +8,14 @@ import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.service.AnimeFaceService;
 import com.github.anicmv.telegrambot.service.AnimeFaceService.SearchResponse;
+import com.github.anicmv.telegrambot.service.StickerImageService;
 import com.github.anicmv.telegrambot.utils.BotUtil;
 import java.util.concurrent.RejectedExecutionException;
+import java.time.Instant;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.stickers.Sticker;
@@ -27,13 +30,19 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
 
     private final Messenger messenger;
     private final AnimeFaceService animeFaceService;
+    private final StickerImageService stickerImageService;
     private final TaskExecutor botBackgroundExecutor;
+    private final TaskScheduler botScheduler;
 
     public AnimeFaceCommandHandler(Messenger messenger, AnimeFaceService animeFaceService,
-                                   @Qualifier("botBackgroundExecutor") TaskExecutor botBackgroundExecutor) {
+                                   StickerImageService stickerImageService,
+                                   @Qualifier("botBackgroundExecutor") TaskExecutor botBackgroundExecutor,
+                                   @Qualifier("botScheduler") TaskScheduler botScheduler) {
         this.messenger = messenger;
         this.animeFaceService = animeFaceService;
+        this.stickerImageService = stickerImageService;
         this.botBackgroundExecutor = botBackgroundExecutor;
+        this.botScheduler = botScheduler;
     }
 
     @Override
@@ -48,32 +57,48 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
         Replier replier = Replier.of(context, messenger);
         Integer progressId = replier.htmlAndReturnId("<b>🔍 正在识别动漫/Gal 人物...</b>");
         try {
-            botBackgroundExecutor.execute(() -> searchAndReply(context, sticker.getFileId(), progressId));
+            botBackgroundExecutor.execute(() -> searchAndReply(context, sticker, progressId));
         } catch (RejectedExecutionException e) {
             log.warn("aniface 任务被拒绝: chatId={}", context == null ? null : context.chatId());
             replyOrEdit(replier, progressId, "<b>❌ 当前识图任务较多，请稍后重试</b>");
         }
     }
 
-    private void searchAndReply(BotContext context, String fileId, Integer progressId) {
+    private void searchAndReply(BotContext context, Sticker sticker, Integer progressId) {
         Replier replier = Replier.of(context, messenger);
         try {
-            byte[] imageBytes = messenger.downloadFileBytes(fileId);
+            byte[] imageBytes = messenger.downloadFileBytes(sticker.getFileId());
             if (imageBytes == null || imageBytes.length == 0) {
-                replyOrEdit(replier, progressId, "<b>❌ 获取贴纸文件失败，请稍后重试</b>");
+                temporaryError(replier, context, progressId);
                 return;
             }
-            SearchResponse response = animeFaceService.search(imageBytes);
+            byte[] normalizedImage = stickerImageService.normalize(sticker, imageBytes);
+            SearchResponse response = animeFaceService.search(normalizedImage);
             if (!response.success() || response.persons().isEmpty()) {
-                replyOrEdit(replier, progressId,
-                        "<b>❌ " + BotUtil.escapeHtml(response.message()) + "</b>");
+                temporaryError(replier, context, progressId);
                 return;
             }
             replyOrEdit(replier, progressId, animeFaceService.formatHtml(response));
         } catch (Exception e) {
             log.warn("aniface 识别失败: chatId={}, fileId={}",
-                    context == null ? null : context.chatId(), fileId, e);
-            replyOrEdit(replier, progressId, "<b>❌ 识别失败，请稍后重试</b>");
+                    context == null ? null : context.chatId(), sticker.getFileId(), e);
+            temporaryError(replier, context, progressId);
+        }
+    }
+
+    private void temporaryError(Replier replier, BotContext context, Integer progressId) {
+        String error = "<b>❌ 识别服务暂时不可用</b>";
+        replyOrEdit(replier, progressId, error);
+        if (progressId == null || context == null || context.chatId() == null) {
+            return;
+        }
+        try {
+            botScheduler.schedule(
+                    () -> messenger.deleteMessageSilently(context.chatId(), progressId),
+                    Instant.now().plusSeconds(3));
+        } catch (RuntimeException e) {
+            log.warn("调度识别错误消息删除失败: chatId={}, messageId={}",
+                    context.chatId(), progressId, e);
         }
     }
 

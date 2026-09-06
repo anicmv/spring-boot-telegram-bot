@@ -126,13 +126,11 @@ public class AnimeFaceService {
         if (response.ai()) {
             result.append("⚠️ 疑似 AI 生成图片\n");
         }
-        for (int i = 0; i < response.persons().size(); i++) {
-            PersonResult person = response.persons().get(i);
-            result.append("\n<b>人物 ").append(i + 1).append("</b>");
-            if (person.notConfident()) {
-                result.append("（候选结果仅供参考）");
-            }
+        for (PersonResult person : response.persons()) {
             result.append('\n');
+            if (person.notConfident()) {
+                result.append("⚠️ 候选结果仅供参考\n");
+            }
             for (Candidate candidate : person.candidates()) {
                 result.append("• ").append(escape(candidate.character()))
                         .append(" ｜ ").append(escape(candidate.work())).append('\n');
