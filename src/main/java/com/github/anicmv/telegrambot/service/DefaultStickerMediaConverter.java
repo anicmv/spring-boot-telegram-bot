@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.List;
 import javax.imageio.ImageIO;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.stickers.Sticker;
 
@@ -21,10 +22,21 @@ public class DefaultStickerMediaConverter implements StickerMediaConverter {
 
     private final CommandExecutor commandExecutor;
     private final BotProperties properties;
+    private final LottieConverterCommandResolver lottieCommandResolver;
 
-    public DefaultStickerMediaConverter(CommandExecutor commandExecutor, BotProperties properties) {
+    @Autowired
+    public DefaultStickerMediaConverter(CommandExecutor commandExecutor, BotProperties properties,
+                                        LottieConverterCommandResolver lottieCommandResolver) {
         this.commandExecutor = commandExecutor;
         this.properties = properties;
+        this.lottieCommandResolver = lottieCommandResolver;
+    }
+
+    /**
+     * 保留轻量测试使用的构造方法；生产 Bean 使用带 resolver 的构造方法。
+     */
+    public DefaultStickerMediaConverter(CommandExecutor commandExecutor, BotProperties properties) {
+        this(commandExecutor, properties, new LottieConverterCommandResolver());
     }
 
     @Override
@@ -33,9 +45,8 @@ public class DefaultStickerMediaConverter implements StickerMediaConverter {
             throw new IOException("贴纸源文件为空");
         }
         if (Boolean.TRUE.equals(sticker.getIsAnimated())) {
-            return runCommand(List.of(properties.getPack().getLottieConverterCommand(), "--output",
-                    workDirectory.resolve("converted.gif").toString(), source.toString()),
-                    workDirectory.resolve("converted.gif"), workDirectory, ".gif");
+            Path output = workDirectory.resolve("converted.gif");
+            return runCommand(lottieCommand(output, source), output, workDirectory, ".gif");
         }
         if (Boolean.TRUE.equals(sticker.getIsVideo())) {
             return runCommand(List.of(properties.getPack().getFfmpegCommand(), "-y", "-i", source.toString(),
@@ -53,6 +64,14 @@ public class DefaultStickerMediaConverter implements StickerMediaConverter {
         return new ConversionResult(target, ".png");
     }
 
+    private List<String> lottieCommand(Path output, Path source) throws IOException {
+        String configured = properties.getPack().getLottieConverterCommand();
+        if (configured != null && !configured.isBlank()) {
+            return List.of(configured, "--output", output.toString(), source.toString());
+        }
+        return List.of("bash", lottieCommandResolver.resolve().toString(), "--output",
+                output.toString(), source.toString());
+    }
     private ConversionResult runCommand(List<String> command, Path output, Path workDirectory, String extension)
             throws Exception {
         Duration timeout = Duration.ofSeconds(properties.getPack().getConversionTimeoutSeconds());

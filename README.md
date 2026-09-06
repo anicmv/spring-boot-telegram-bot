@@ -124,14 +124,16 @@ export DEEPSEEK_API_KEY="LLM api-key"   # 或百炼 DASHSCOPE_API_KEY，按 prof
 
 ### 2. 安装媒体转换依赖
 
-`/pack` 会将静态 WebP 转为 PNG、TGS 转为 GIF、WebM 转为 GIF。Gradle 会引入 TwelveMonkeys 的 WebP ImageIO 插件；运行环境还必须在 `PATH` 中提供：
+`/pack` 和 `/sticker` 会将静态 WebP 转为 PNG、TGS 转为 GIF、WebM 转为 GIF。默认会从 classpath 中自动解包 `resources/lottie-converter/bin` 下的内置 lottie 转换器，不需要填写本机绝对路径；Spring Boot fat jar 运行时也会自动解包到临时目录。内置的 `lottie_to_png` 当前仅支持 macOS ARM；其他平台可通过 `bot.telegram.pack.lottie-converter-command` 配置外部脚本覆盖。运行环境仍需在 `PATH` 中提供 `bash`、`gifski`、`gunzip` 和 `ffmpeg`：
 
 ```bash
+bash --version
+gifski --version
+gunzip --version
 ffmpeg -version
-lottie_to_gif.sh --help
 ```
 
-`lottie_to_gif.sh` 来自 [ed-asriyan/lottie-converter](https://github.com/ed-asriyan/lottie-converter)，其 GIF 输出还依赖 `gifski` 和 `gunzip`。可通过 `bot.telegram.pack.lottie-converter-command`、`ffmpeg-command`、`conversion-timeout-seconds` 配置命令和超时。缺少任一外部工具时，对应贴纸会跳过，其余贴纸仍会继续打包。
+内置脚本来自 [ed-asriyan/lottie-converter](https://github.com/ed-asriyan/lottie-converter)，TGS→GIF 依赖 `gifski` 和 `gunzip`。如需覆盖内置脚本，可配置 `bot.telegram.pack.lottie-converter-command`；`ffmpeg-command` 和 `conversion-timeout-seconds` 仍可配置。缺少外部工具时，对应贴纸会跳过，其余贴纸继续处理。
 
 ### 3. 如果之前用过 webhook，先删除
 

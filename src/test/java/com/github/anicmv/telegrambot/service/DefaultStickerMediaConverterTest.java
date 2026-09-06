@@ -53,7 +53,10 @@ class DefaultStickerMediaConverterTest {
             StickerMediaConverter.ConversionResult result = converter.convert(sticker(true, false), source, dir);
 
             assertEquals(".gif", result.extension());
-            assertEquals("lottie_to_gif.sh", command.getFirst());
+            assertEquals("bash", command.getFirst());
+            Path bundledScript = Path.of(command.get(1));
+            assertEquals("lottie_to_gif.sh", bundledScript.getFileName().toString());
+            assertTrue(Files.isRegularFile(bundledScript));
             assertTrue(command.contains("--output"));
             assertTrue(command.contains(source.toString()));
         } finally {

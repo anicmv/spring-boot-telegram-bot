@@ -40,9 +40,10 @@ public class BotProperties {
         private long maxZipBytes = 49L * 1024 * 1024;
 
         /**
-         * TGS 转 GIF 命令，默认从 PATH 查找 lottie-converter 的 lottie_to_gif.sh。
+         * TGS 转 GIF 命令；为空时自动使用 classpath 中内置的 lottie-converter。
+         * 如需使用外部版本，可配置脚本的绝对路径或 PATH 命令。
          */
-        private String lottieConverterCommand = "lottie_to_gif.sh";
+        private String lottieConverterCommand = "";
 
         /**
          * WebM 转 GIF 命令，默认从 PATH 查找 ffmpeg。

@@ -29,8 +29,7 @@ bot:
       read-timeout-seconds: 60
       write-timeout-seconds: 60
     pack:
-      # 静态 WebP 自动转 PNG；TGS/WebM 分别依赖下列外部命令。
-      lottie-converter-command: /Users/anicmv/Library/CloudStorage/Dropbox/file/text/github/anicmv/spring-boot-telegram-bot/src/main/resources/lottie-converter/bin/lottie_to_gif.sh
+      # 默认自动使用 classpath 中内置的 lottie-converter；如需外部版本可配置 lottie-converter-command。
       ffmpeg-command: ffmpeg
       conversion-timeout-seconds: 180
     ai:
