@@ -178,7 +178,7 @@ public class AnimeFaceService {
         if (translation == null || translation.nameCn() == null || translation.nameCn().isBlank()) {
             return escape(original);
         }
-        return translation.toHtmlLink() + "（" + escape(original) + "）";
+        return translation.toHtmlLink();
     }
 
     private String escape(String text) {
