@@ -69,7 +69,8 @@
 - **生成时机**：xxl-job 每晚跑批 `UserProfileAnalysisJobHandler` 增量滚动合并；库里无画像时 `/profile` 会现场生成
 - **强制重生开关**：`bot.telegram.profile.regenerate-on-query`（默认 true，每次查询现场全量重新生成；画像格式稳定后置 false，改由跑批更新、查询直接读库）
 - **白名单数据库化**：`profile_allow_user` 表（PENDING/APPROVED/DENIED）
-  - admin（yml `bot.telegram.profile.admin-user-ids`）免白名单直接用 `/profile`
+  - admin（yml `bot.telegram.profile.admin-user-ids`）免白名单直接用 `/profile`，回复某条消息后可查看该消息发送者的画像；不回复消息时查看自己
+  - 普通用户只有被 admin 确认（APPROVED）后才能使用 `/profile`，且始终只能查看自己的画像，即使回复了其他用户的消息也不会越权查看
   - 普通用户无权限发 `/profile` → 落 PENDING 并推送带 `✅ 授权 / ❌ 拒绝` 按钮的审批消息，仅 admin 点击生效；点击后消息编辑为结果并清除按钮
   - 审批消息超时自动清理后再次发 `/profile` 会重新推送审批消息（被拒后同理）
 - **消息自动清理**：`auto-delete-enabled`（默认开）；画像产出消息 + 命令消息 `auto-delete-delay-seconds`（默认 120s）后删除，授权申请按钮消息 `approval-request-delete-seconds`（默认 30s）后删除

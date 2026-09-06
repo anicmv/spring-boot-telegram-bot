@@ -24,6 +24,7 @@ public class BotProperties {
     private Ai ai = new Ai();
     private Profile profile = new Profile();
     private Pack pack = new Pack();
+    private KeywordNotify keywordNotify = new KeywordNotify();
 
     @Setter
     @Getter
@@ -37,7 +38,6 @@ public class BotProperties {
          * zip 体积上限（字节），超出截断；需小于 Bot API 50MB 上传限制。
          */
         private long maxZipBytes = 49L * 1024 * 1024;
-
 
         /**
          * TGS 转 GIF 命令，默认从 PATH 查找 lottie-converter 的 lottie_to_gif.sh。
@@ -104,12 +104,7 @@ public class BotProperties {
         /**
          * 单人单轮分析的最大消息条数。
          */
-        private int batchMessageLimit = 100;
-
-        /**
-         * /profile 是否允许通过 @username 直接查他人画像。
-         */
-        private boolean allowQueryOthers = false;
+        private int batchMessageLimit = 1000;
 
         /**
          * /profile 是否每次现场强制重新生成画像（忽略存量画像，从最早消息重新分析一轮）。
@@ -159,6 +154,30 @@ public class BotProperties {
                 3. 新记录与旧画像矛盾时以新证据为准；某方面没有新信息时保留旧结论。
                 4. 不得编造聊天记录之外的信息；记录不足时 summary 如实简短描述、只写已有线索。
                 """;
+    }
+
+    @Setter
+    @Getter
+    public static class KeywordNotify {
+        /**
+         * 关键词通知功能总开关。
+         */
+        private boolean enabled = false;
+
+        /**
+         * 监听的关键词列表。
+         */
+        private Set<String> keywords = new HashSet<>();
+
+        /**
+         * 接收通知的 Telegram 用户 ID。
+         */
+        private Long notifyUserId;
+
+        /**
+         * 监听的群 ID 白名单（空表示监听所有群）。
+         */
+        private Set<Long> groupIds = new HashSet<>();
     }
 
 }

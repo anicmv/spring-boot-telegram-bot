@@ -33,11 +33,10 @@ import java.util.concurrent.RejectedExecutionException;
 /**
  * @author anicmv
  * @date 2026/9/4
- * @description /profile 命令处理器：查看用户画像。
- * /profile 查自己；回复消息发 /profile 查对方；/profile @username 查他人（需配置放开）。
+ * @description /profile 命令处理器：普通用户查看自己的用户画像，管理员回复消息可查看对方画像。
  */
 @Log4j2
-@BotCommand(value = BotConstant.CMD_PROFILE, description = "查看用户画像：/profile 查自己，回复消息发 /profile 查对方")
+@BotCommand(value = BotConstant.CMD_PROFILE, description = "查看用户画像：普通用户查自己，管理员回复消息查对方")
 @Component
 public class ProfileCommandHandler implements BotCommandHandler {
 
@@ -78,8 +77,7 @@ public class ProfileCommandHandler implements BotCommandHandler {
      * admin 免白名单直接用；其余用户须已被授权落库（profile_allow_user 表 APPROVED）。
      */
     private boolean canUse(Long userId) {
-        return botProperties.getProfile().getAdminUserIds().contains(userId)
-                || profileAllowUserRepository.isApproved(userId);
+        return isAdmin(userId) || profileAllowUserRepository.isApproved(userId);
     }
 
     /**
@@ -100,11 +98,12 @@ public class ProfileCommandHandler implements BotCommandHandler {
 
     @Override
     public void execute(BotContext context) {
+        boolean admin = isAdmin(context.userId());
         if (!canUse(context.userId())) {
             requestAccess(context);
             return;
         }
-        ProfileQuery query = resolveQuery(context);
+        ProfileQuery query = resolveQuery(context, admin);
         if (query.rejected()) {
             replyPlain(context, query.rejectMessage());
             return;
@@ -118,35 +117,29 @@ public class ProfileCommandHandler implements BotCommandHandler {
         }
     }
 
-    private ProfileQuery resolveQuery(BotContext context) {
-        String argument = extractFirstArgument(context.text());
-        if (argument.startsWith("@")) {
-            if (!botProperties.getProfile().isAllowQueryOthers()) {
-                return ProfileQuery.rejected("暂未开启直接查询他人画像。查自己请用 /profile，查对方可回复其消息后发 /profile。");
-            }
-            String username = argument.substring(1).trim();
-            return botUserRepository.findByUsername(username)
-                    .map(user -> ProfileQuery.of(user.telegramId()))
-                    .orElseGet(() -> ProfileQuery.rejected("未找到用户 @" + username + "。"));
-        }
-        Message message = context.message();
-        if (message != null && message.getReplyToMessage() != null
-                && message.getReplyToMessage().getFrom() != null) {
-            User repliedFrom = message.getReplyToMessage().getFrom();
-            if (Boolean.TRUE.equals(repliedFrom.getIsBot())) {
-                return ProfileQuery.rejected("机器人账号不支持生成画像。");
-            }
-            return ProfileQuery.of(repliedFrom.getId());
-        }
-        return ProfileQuery.of(context.userId());
+    private boolean isAdmin(Long userId) {
+        return userId != null && botProperties.getProfile().getAdminUserIds().contains(userId);
     }
 
-    static String extractFirstArgument(String text) {
-        if (text == null) {
-            return "";
+    /**
+     * 只有管理员可以通过回复消息指定目标；普通用户即使回复他人也只能查看自己。
+     */
+    private ProfileQuery resolveQuery(BotContext context, boolean admin) {
+        Long callerUserId = context.userId();
+        if (!admin) {
+            return ProfileQuery.of(callerUserId);
         }
-        String[] parts = text.trim().split("\\s+");
-        return parts.length < 2 ? "" : parts[1];
+        if (context.message() == null || context.message().getReplyToMessage() == null) {
+            return ProfileQuery.of(callerUserId);
+        }
+        org.telegram.telegrambots.meta.api.objects.User repliedFrom = context.message().getReplyToMessage().getFrom();
+        if (repliedFrom == null || repliedFrom.getId() == null) {
+            return ProfileQuery.rejected("无法确定被回复的用户，不能生成用户画像。");
+        }
+        if (Boolean.TRUE.equals(repliedFrom.getIsBot())) {
+            return ProfileQuery.rejected("机器人账号不支持生成画像。");
+        }
+        return ProfileQuery.of(repliedFrom.getId());
     }
 
     private void answerInBackground(BotContext context, Long targetUserId, Integer progressMessageId) {

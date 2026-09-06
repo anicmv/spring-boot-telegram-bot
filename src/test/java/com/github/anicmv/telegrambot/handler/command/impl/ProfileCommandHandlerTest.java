@@ -249,54 +249,81 @@ class ProfileCommandHandlerTest {
     }
 
     @Test
-    void shouldRejectBotTarget() {
+    void adminReplyingToAnotherUserShouldQueryRepliedUser() {
+        properties.getProfile().getAdminUserIds().add(999L);
         Message replied = new Message();
         replied.setFrom(org.telegram.telegrambots.meta.api.objects.User.builder()
-                .id(777L).firstName("SomeBot").userName("some_bot").isBot(true).build());
+                .id(888L).firstName("other").isBot(false).build());
         Message command = new Message();
         command.setMessageId(7);
-        command.setFrom(org.telegram.telegrambots.meta.api.objects.User.builder()
-                .id(999L).firstName("caller").isBot(false).build());
         command.setReplyToMessage(replied);
-        BotContext ctx = new BotContext(null, UpdateType.MESSAGE, -100123L, 999L, "/profile", command, null, null, null);
+        BotContext ctx = new BotContext(null, UpdateType.MESSAGE, -100123L, 999L,
+                "/profile", command, null, null, null);
+        when(userProfileRepository.findByTelegramId(888L)).thenReturn(Optional.empty());
+        when(profileAnalysisService.analyzeUser(888L, true)).thenReturn(ProfileAnalysisService.Result.SKIPPED);
+
+        handler.execute(ctx);
+
+        verify(userProfileRepository, org.mockito.Mockito.atLeastOnce()).findByTelegramId(888L);
+        verify(userProfileRepository, never()).findByTelegramId(999L);
+        verify(profileAnalysisService).analyzeUser(888L, true);
+        verify(profileAnalysisService, never()).analyzeUser(eq(999L), anyBoolean());
+    }
+
+    @Test
+    void approvedUserReplyingToAnotherUserShouldStillQuerySelf() {
+        Message replied = new Message();
+        replied.setFrom(org.telegram.telegrambots.meta.api.objects.User.builder()
+                .id(888L).firstName("other").isBot(false).build());
+        Message command = new Message();
+        command.setMessageId(7);
+        command.setReplyToMessage(replied);
+        BotContext ctx = new BotContext(null, UpdateType.MESSAGE, -100123L, 999L,
+                "/profile", command, null, null, null);
+        when(userProfileRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
+        when(profileAnalysisService.analyzeUser(999L, true)).thenReturn(ProfileAnalysisService.Result.SKIPPED);
+
+        handler.execute(ctx);
+
+        verify(userProfileRepository, org.mockito.Mockito.atLeastOnce()).findByTelegramId(999L);
+        verify(userProfileRepository, never()).findByTelegramId(888L);
+        verify(profileAnalysisService).analyzeUser(999L, true);
+        verify(profileAnalysisService, never()).analyzeUser(eq(888L), anyBoolean());
+    }
+
+    @Test
+    void adminReplyingToBotShouldBeRejectedWithoutQueryingProfile() {
+        properties.getProfile().getAdminUserIds().add(999L);
+        Message replied = new Message();
+        replied.setFrom(org.telegram.telegrambots.meta.api.objects.User.builder()
+                .id(777L).firstName("bot").isBot(true).build());
+        Message command = new Message();
+        command.setMessageId(7);
+        command.setReplyToMessage(replied);
+        BotContext ctx = new BotContext(null, UpdateType.MESSAGE, -100123L, 999L,
+                "/profile", command, null, null, null);
 
         handler.execute(ctx);
 
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(messenger).sendReplyText(eq(-100123L), eq(7), captor.capture());
         assertTrue(captor.getValue().contains("机器人账号不支持"));
+        verify(messenger, never()).sendReplyTextAndReturnMessageId(anyLong(), any(), anyString());
         verify(userProfileRepository, never()).findByTelegramId(anyLong());
         verify(profileAnalysisService, never()).analyzeUser(anyLong(), anyBoolean());
     }
 
     @Test
-    void queryingOthersByUsernameShouldBeRejectedByDefault() {
-        handler.execute(context("/profile @someone"));
-
-        verify(userProfileRepository, never()).findByTelegramId(anyLong());
-        ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-        verify(messenger).sendReplyText(eq(-100123L), eq(7), captor.capture());
-        assertTrue(captor.getValue().contains("暂未开启"));
-    }
-
-    @Test
-    void queryingOthersShouldWorkWhenEnabled() {
-        properties.getProfile().setAllowQueryOthers(true);
-        when(botUserRepository.findByUsername("someone"))
-                .thenReturn(Optional.of(new BotUserProfile(1L, "someone", "某人", 888L, null, null)));
-        when(messenger.sendReplyTextAndReturnMessageId(eq(-100123L), eq(7), anyString())).thenReturn(700);
-        when(userProfileRepository.findByTelegramId(888L)).thenReturn(Optional.empty());
+    void usernameArgumentShouldStillQuerySelf() {
+        when(userProfileRepository.findByTelegramId(999L)).thenReturn(Optional.empty());
+        when(profileAnalysisService.analyzeUser(999L, true)).thenReturn(ProfileAnalysisService.Result.SKIPPED);
 
         handler.execute(context("/profile @someone"));
 
-        verify(userProfileRepository, org.mockito.Mockito.atLeastOnce()).findByTelegramId(888L);
-    }
-
-    @Test
-    void extractFirstArgumentShouldParseCommandArgument() {
-        assertEquals("@abc", ProfileCommandHandler.extractFirstArgument("/profile @abc"));
-        assertEquals("", ProfileCommandHandler.extractFirstArgument("/profile"));
-        assertEquals("", ProfileCommandHandler.extractFirstArgument(null));
+        verify(userProfileRepository, org.mockito.Mockito.atLeastOnce()).findByTelegramId(999L);
+        verify(userProfileRepository, never()).findByTelegramId(888L);
+        verify(botUserRepository, never()).findByUsername(anyString());
+        verify(profileAnalysisService).analyzeUser(999L, true);
     }
 
     private BotContext context(String text) {
