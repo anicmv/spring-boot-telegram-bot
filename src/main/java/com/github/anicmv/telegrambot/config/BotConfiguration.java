@@ -39,7 +39,7 @@ import java.util.List;
  * @description 机器人核心 Bean 装配配置类。
  */
 @Configuration
-@EnableConfigurationProperties({BotProperties.class, MafProperties.class})
+@EnableConfigurationProperties({BotProperties.class, MafProperties.class, HolidayProperties.class})
 public class BotConfiguration {
 
     @Bean(name = {"botUpdateExecutor", "applicationTaskExecutor"})

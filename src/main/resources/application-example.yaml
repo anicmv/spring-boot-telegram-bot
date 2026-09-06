@@ -29,7 +29,8 @@ bot:
       read-timeout-seconds: 60
       write-timeout-seconds: 60
     pack:
-      # 默认自动使用 classpath 中内置的 lottie-converter；如需外部版本可配置 lottie-converter-command。
+      # 静态 WebP 自动转 PNG；TGS/WebM 分别依赖下列外部命令。
+      lottie-converter-command: lottie_to_gif.sh
       ffmpeg-command: ffmpeg
       conversion-timeout-seconds: 180
     ai:
@@ -46,7 +47,7 @@ bot:
       # 群白名单（超级群 ID 以 -100 开头），仅记录这些群的消息
       record-group-ids: []
       # 单人单轮分析的最大消息条数
-      batch-message-limit: 1000
+      batch-message-limit: 100
       # /profile 是否每次现场强制重新生成画像；画像格式调整期临时开启，稳定后关闭改由每晚跑批更新
       regenerate-on-query: true
       # /profile 授权管理员：仅其点击授权按钮生效，且 admin 免白名单直接用 /profile；普通用户白名单存 profile_allow_user 表
