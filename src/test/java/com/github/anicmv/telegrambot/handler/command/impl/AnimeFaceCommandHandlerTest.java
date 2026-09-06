@@ -79,7 +79,7 @@ class AnimeFaceCommandHandlerTest {
                 .execute(context(message(stickerMessage(sticker("sticker-file")))));
 
         verify(messenger).editMessageText(eq(CHAT_ID), eq(PROGRESS_ID),
-                eq("<b>❌ 识别服务暂时不可用</b>"), eq("HTML"));
+                eq("<b>❌ 出了点意外...</b>"), eq("HTML"));
         org.mockito.ArgumentCaptor<Runnable> task = org.mockito.ArgumentCaptor.forClass(Runnable.class);
         verify(scheduler).schedule(task.capture(), org.mockito.ArgumentMatchers.any(Instant.class));
         task.getValue().run();
@@ -125,7 +125,9 @@ class AnimeFaceCommandHandlerTest {
                                                TaskScheduler scheduler) {
         BangumiWorkTranslationService translationService = mock(BangumiWorkTranslationService.class);
         when(translationService.translateAsync(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(java.util.Map.of()));
+                .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(
+                        new com.github.anicmv.telegrambot.service.BangumiWorkTranslationService
+                                .TranslationResult(java.util.Map.of(), java.util.Map.of())));
         return new AnimeFaceCommandHandler(messenger, service, imageService, translationService, executor, scheduler);
     }
 

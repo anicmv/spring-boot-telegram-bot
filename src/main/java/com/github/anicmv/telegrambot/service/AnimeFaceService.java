@@ -123,11 +123,16 @@ public class AnimeFaceService {
     }
 
     public String formatHtml(SearchResponse response) {
-        return formatHtml(response, Map.of());
+        return formatHtml(response, Map.of(), Map.of());
     }
 
-    public String formatHtml(SearchResponse response, Map<String, String> workTranslations) {
-        Map<String, String> translations = workTranslations == null ? Map.of() : workTranslations;
+    public String formatHtml(SearchResponse response,
+                             Map<String, BangumiWorkTranslationService.Translation> workTranslations,
+                             Map<String, BangumiWorkTranslationService.Translation> characterTranslations) {
+        Map<String, BangumiWorkTranslationService.Translation> translations =
+                workTranslations == null ? Map.of() : workTranslations;
+        Map<String, BangumiWorkTranslationService.Translation> characterTranslationMap =
+                characterTranslations == null ? Map.of() : characterTranslations;
         StringBuilder result = new StringBuilder("<b>🎭 动漫/Gal 人物识别</b>\n");
         if (response.ai()) {
             result.append("⚠️ 疑似 AI 生成图片\n");
@@ -138,11 +143,15 @@ public class AnimeFaceService {
                 result.append("⚠️ 候选结果仅供参考\n");
             }
             for (Candidate candidate : person.candidates()) {
-                String translatedWork = translations.get(normalizeWork(candidate.work()));
-                String work = translatedWork == null || translatedWork.isBlank()
-                        ? candidate.work() : translatedWork + "（" + candidate.work() + "）";
-                result.append("• ").append(escape(candidate.character()))
-                        .append(" ｜ ").append(escape(work)).append('\n');
+                String characterKey = BangumiWorkTranslationService.characterKey(
+                        normalizeWork(candidate.work()), normalizeWork(candidate.character()));
+                result.append("• ")
+                        .append(displayWithTranslation(candidate.character(),
+                                characterTranslationMap.get(characterKey)))
+                        .append(" ｜ ")
+                        .append(displayWithTranslation(candidate.work(),
+                                translations.get(normalizeWork(candidate.work()))))
+                        .append('\n');
             }
         }
         if (result.length() > MAX_RESULT_LENGTH) {
@@ -162,6 +171,14 @@ public class AnimeFaceService {
             case 17728 -> "识别服务已达到本次使用上限";
             default -> "识别失败，请稍后重试（错误码 " + code + "）";
         };
+    }
+
+    private String displayWithTranslation(String original,
+                                          BangumiWorkTranslationService.Translation translation) {
+        if (translation == null || translation.nameCn() == null || translation.nameCn().isBlank()) {
+            return escape(original);
+        }
+        return translation.toHtmlLink() + "（" + escape(original) + "）";
     }
 
     private String escape(String text) {

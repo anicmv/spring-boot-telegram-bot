@@ -3,12 +3,15 @@ package com.github.anicmv.telegrambot.handler.command.impl;
 import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.model.BotContext;
 import com.github.anicmv.telegrambot.model.UpdateType;
+import com.github.anicmv.telegrambot.service.BangumiWorkTranslationService;
 import com.github.anicmv.telegrambot.service.TraceMoeService;
 import com.github.anicmv.telegrambot.service.TraceMoeService.AnimeResult;
 import com.github.anicmv.telegrambot.service.TraceMoeService.SearchResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -24,6 +27,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -87,7 +91,8 @@ class AnimeSearchCommandHandlerTest {
         assertTrue(caption.indexOf("高匹配") < caption.indexOf("低匹配"));
         assertTrue(caption.length() <= 1024);
         verify(messenger).deleteMessageSilently(CHAT_ID, PROGRESS_MESSAGE_ID);
-        verify(messenger, times(1)).editMessageText(eq(CHAT_ID), eq(PROGRESS_MESSAGE_ID), anyString(), eq("HTML"));
+        // 一次"正在翻译标题"，一次"正在上传预览片段"
+        verify(messenger, times(2)).editMessageText(eq(CHAT_ID), eq(PROGRESS_MESSAGE_ID), anyString(), eq("HTML"));
         assertFalse(Files.exists(preview));
     }
 
@@ -104,6 +109,22 @@ class AnimeSearchCommandHandlerTest {
                 argThat(text -> text.contains("动漫识图结果")
                         && text.contains("https://media.trace.moe/preview.mp4")
                         && text.contains("预览片段")), eq("HTML"));
+    }
+
+    @Test
+    void translatedTitleShouldAppearInResultHeader() {
+        stubSuccessfulSearch();
+        when(traceMoeService.downloadPreview("https://media.trace.moe/preview.mp4"))
+                .thenThrow(new IllegalStateException("download failed"));
+
+        newHandler(Runnable::run, Map.of("测试动画",
+                        new BangumiWorkTranslationService.Translation(
+                                "测试中文名", "https://bgm.tv/subject/123")))
+                .execute(context(commandMessage(photoMessage())));
+
+        verify(messenger).editMessageText(eq(CHAT_ID), eq(PROGRESS_MESSAGE_ID),
+                argThat(text -> text.contains(
+                        "<a href=\"https://bgm.tv/subject/123\">测试中文名</a>（测试动画）")), eq("HTML"));
     }
 
     @Test
@@ -165,7 +186,15 @@ class AnimeSearchCommandHandlerTest {
     }
 
     private AnimeSearchCommandHandler newHandler(TaskExecutor executor) {
-        return new AnimeSearchCommandHandler(messenger, traceMoeService, executor);
+        return newHandler(executor, Map.of());
+    }
+
+    private AnimeSearchCommandHandler newHandler(
+            TaskExecutor executor, Map<String, BangumiWorkTranslationService.Translation> translations) {
+        BangumiWorkTranslationService translationService = mock(BangumiWorkTranslationService.class);
+        org.mockito.Mockito.lenient().when(translationService.translateTitlesAsync(any()))
+                .thenReturn(CompletableFuture.completedFuture(translations));
+        return new AnimeSearchCommandHandler(messenger, traceMoeService, translationService, executor);
     }
 
     private void stubProgressReply() {

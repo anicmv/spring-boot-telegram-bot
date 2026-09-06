@@ -10,11 +10,6 @@ import com.github.anicmv.telegrambot.service.AnimeFaceService;
 import com.github.anicmv.telegrambot.service.AnimeFaceService.SearchResponse;
 import com.github.anicmv.telegrambot.service.BangumiWorkTranslationService;
 import com.github.anicmv.telegrambot.service.StickerImageService;
-import com.github.anicmv.telegrambot.utils.BotUtil;
-import java.time.Instant;
-import java.util.Comparator;
-import java.util.List;
-import java.util.concurrent.RejectedExecutionException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -22,6 +17,11 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.stickers.Sticker;
+
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
 
 /**
  * /aniface：回复一条贴纸，识别其中的动漫/Gal 人物。
@@ -104,6 +104,10 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
                 return;
             }
             replyOrEdit(replier, progressId, animeFaceService.formatHtml(response));
+            log.info("aniface 识别结果已发送原文: chatId={}, progressId={}, traceId={}, works={}",
+                    context == null ? null : context.chatId(), progressId, response.traceId(),
+                    response.persons().stream().flatMap(person -> person.candidates().stream())
+                            .map(AnimeFaceService.Candidate::work).toList());
             translateAsync(replier, response, progressId);
         } catch (Exception e) {
             log.warn("aniface 识别失败: chatId={}, fileId={}",
@@ -114,12 +118,21 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
 
     private void translateAsync(Replier replier, SearchResponse response, Integer progressId) {
         try {
-            bangumiWorkTranslationService.translateAsync(response).whenComplete((translations, error) -> {
-                if (error != null || translations == null || translations.isEmpty()) {
+            bangumiWorkTranslationService.translateAsync(response).whenComplete((result, error) -> {
+                if (error != null) {
+                    log.warn("Bangumi 翻译任务失败: traceId={}", response.traceId(), error);
                     return;
                 }
+                if (result == null || (result.workTranslations().isEmpty()
+                        && result.characterTranslations().isEmpty())) {
+                    log.warn("Bangumi 没有匹配到中文名: traceId={}", response.traceId());
+                    return;
+                }
+                log.info("Bangumi 翻译完成: traceId={}, works={}, characters={}",
+                        response.traceId(), result.workTranslations(), result.characterTranslations());
                 try {
-                    replyOrEdit(replier, progressId, animeFaceService.formatHtml(response, translations));
+                    replyOrEdit(replier, progressId, animeFaceService.formatHtml(
+                            response, result.workTranslations(), result.characterTranslations()));
                 } catch (RuntimeException e) {
                     log.warn("Bangumi 中文名更新失败", e);
                 }
@@ -129,7 +142,7 @@ public class AnimeFaceCommandHandler implements BotCommandHandler {
         }
     }
     private void temporaryError(Replier replier, BotContext context, Integer progressId) {
-        String error = "<b>❌ 识别服务暂时不可用</b>";
+        String error = "<b>❌ 出了点意外...</b>";
         replyOrEdit(replier, progressId, error);
         if (progressId == null || context == null || context.chatId() == null) {
             return;

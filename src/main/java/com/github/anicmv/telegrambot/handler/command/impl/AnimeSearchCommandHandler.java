@@ -6,6 +6,7 @@ import com.github.anicmv.telegrambot.handler.command.BotCommandHandler;
 import com.github.anicmv.telegrambot.messenger.Messenger;
 import com.github.anicmv.telegrambot.messenger.Replier;
 import com.github.anicmv.telegrambot.model.BotContext;
+import com.github.anicmv.telegrambot.service.BangumiWorkTranslationService;
 import com.github.anicmv.telegrambot.service.TraceMoeService;
 import com.github.anicmv.telegrambot.service.TraceMoeService.AnimeResult;
 import com.github.anicmv.telegrambot.service.TraceMoeService.SearchResponse;
@@ -13,6 +14,7 @@ import com.github.anicmv.telegrambot.utils.BotUtil;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
 import lombok.extern.log4j.Log4j2;
@@ -38,13 +40,16 @@ public class AnimeSearchCommandHandler implements BotCommandHandler {
 
     private final Messenger messenger;
     private final TraceMoeService traceMoeService;
+    private final BangumiWorkTranslationService bangumiWorkTranslationService;
     private final TaskExecutor botBackgroundExecutor;
 
     public AnimeSearchCommandHandler(Messenger messenger,
                                      TraceMoeService traceMoeService,
+                                     BangumiWorkTranslationService bangumiWorkTranslationService,
                                      @Qualifier("botBackgroundExecutor") TaskExecutor botBackgroundExecutor) {
         this.messenger = messenger;
         this.traceMoeService = traceMoeService;
+        this.bangumiWorkTranslationService = bangumiWorkTranslationService;
         this.botBackgroundExecutor = botBackgroundExecutor;
     }
 
@@ -89,8 +94,13 @@ public class AnimeSearchCommandHandler implements BotCommandHandler {
                 return;
             }
 
-            String resultText = buildResultText(response.results());
-            if (sendPreviewVideo(replier, progressMessageId, response.results())) {
+            if (progressMessageId != null) {
+                replier.editHtml(progressMessageId, "<b>🌐 正在翻译标题...</b>");
+            }
+            Map<String, BangumiWorkTranslationService.Translation> titleTranslations =
+                    translateTitles(response.results());
+            String resultText = buildResultText(response.results(), titleTranslations);
+            if (sendPreviewVideo(replier, progressMessageId, response.results(), titleTranslations)) {
                 replier.deleteSilently(progressMessageId);
             } else {
                 replyOrEdit(replier, progressMessageId, resultText);
@@ -102,8 +112,9 @@ public class AnimeSearchCommandHandler implements BotCommandHandler {
         }
     }
 
-    private boolean sendPreviewVideo(Replier replier, Integer progressMessageId, List<AnimeResult> results) {
-        Optional<String> caption = buildVideoCaption(results);
+    private boolean sendPreviewVideo(Replier replier, Integer progressMessageId, List<AnimeResult> results,
+                                     Map<String, BangumiWorkTranslationService.Translation> titleTranslations) {
+        Optional<String> caption = buildVideoCaption(results, titleTranslations);
         AnimeResult bestResult = highestSimilarityResult(results);
         if (caption.isEmpty() || bestResult.previewUrl() == null || bestResult.previewUrl().isBlank()) {
             return false;
@@ -128,22 +139,34 @@ public class AnimeSearchCommandHandler implements BotCommandHandler {
                 .orElseThrow();
     }
 
-    private String buildResultText(List<AnimeResult> results) {
+    private Map<String, BangumiWorkTranslationService.Translation> translateTitles(List<AnimeResult> results) {
+        try {
+            List<String> titles = results.stream().map(this::displayTitle).toList();
+            return bangumiWorkTranslationService.translateTitlesAsync(titles).join();
+        } catch (RuntimeException e) {
+            log.warn("Bangumi 标题翻译失败", e);
+            return Map.of();
+        }
+    }
+
+    private String buildResultText(List<AnimeResult> results,
+                                   Map<String, BangumiWorkTranslationService.Translation> titleTranslations) {
         StringBuilder text = new StringBuilder(RESULT_HEADER);
         for (int i = 0; i < results.size(); i++) {
-            text.append(buildResultItem(i + 1, results.get(i)));
+            text.append(buildResultItem(i + 1, results.get(i), titleTranslations));
         }
         return text.append(RESULT_FOOTER).toString();
     }
 
-    private Optional<String> buildVideoCaption(List<AnimeResult> results) {
+    private Optional<String> buildVideoCaption(List<AnimeResult> results,
+                                               Map<String, BangumiWorkTranslationService.Translation> titleTranslations) {
         List<AnimeResult> rankedResults = results.stream()
                 .sorted(Comparator.comparingDouble(AnimeResult::similarity).reversed())
                 .toList();
         for (int included = rankedResults.size(); included >= 1; included--) {
             StringBuilder caption = new StringBuilder(RESULT_HEADER);
             for (int i = 0; i < included; i++) {
-                caption.append(buildResultItem(i + 1, rankedResults.get(i)));
+                caption.append(buildResultItem(i + 1, rankedResults.get(i), titleTranslations));
             }
             int omitted = rankedResults.size() - included;
             if (omitted > 0) {
@@ -157,10 +180,16 @@ public class AnimeSearchCommandHandler implements BotCommandHandler {
         return Optional.empty();
     }
 
-    private String buildResultItem(int index, AnimeResult result) {
+    private String buildResultItem(int index, AnimeResult result,
+                                   Map<String, BangumiWorkTranslationService.Translation> titleTranslations) {
         StringBuilder text = new StringBuilder();
+        String title = displayTitle(result);
+        BangumiWorkTranslationService.Translation translated = titleTranslations.get(title);
+        String header = translated == null || translated.nameCn().isBlank()
+                ? BotUtil.escapeHtml(title)
+                : translated.toHtmlLink() + "（" + BotUtil.escapeHtml(title) + "）";
         text.append("<b>").append(index).append(". ")
-                .append(BotUtil.escapeHtml(displayTitle(result))).append("</b>\n");
+                .append(header).append("</b>\n");
         appendAlternativeTitle(text, result);
         text.append("📺 ").append(BotUtil.escapeHtml(result.episode())).append("\n")
                 .append("⏱ 时间戳：").append(result.formatTimestamp()).append("\n")
